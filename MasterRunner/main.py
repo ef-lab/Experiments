@@ -3,8 +3,9 @@ from PyQt5 import uic, QtWidgets,QtCore
 from PyQt5.QtGui import QPixmap, QImage
 import time, h5py, os, numpy, datetime, threading
 from queue import Queue
-
-
+import gi
+gi.require_version('Aravis', '0.8')
+from gi.repository import Aravis
 class Writer(object):
     def __init__(self, datapath):
         self.datapath = datapath
@@ -113,7 +114,7 @@ class Camera:
         self.saver.exit()
 
 
-class Aravis(Camera):
+class AravisCam(Camera):
     import gi
     gi.require_version('Aravis', '0.8')
     from gi.repository import Aravis
@@ -157,8 +158,20 @@ class Aravis(Camera):
         self.camera.start_acquisition()
         self.thread_runner.start()
 
-    def get_data(self):
-        return numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
+    def capture(self):
+        while not self.thread_end.is_set():
+            image = self.stream.pop_buffer()
+            if image:
+                dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
+                # saver.append('sys_timestamps',time.time())
+                if self.save.is_set():
+                    print('Saving frame %d' % self.iframe)
+                    self.iframe += 1
+                    self.saver.append('timestamps', image.get_system_timestamp() * 1e-9)
+                    self.saver.append('frames', dat)
+                    self.saver.append('indexes', self.iframe)
+                self.stream.push_buffer(image)
+                self.queue.put(dat)
 
     def quit(self):
         self.thread_end.set()
@@ -168,7 +181,11 @@ class Aravis(Camera):
         self.saver.exit()
 
 
-class FakeAravis(Aravis):
+class FakeAravisCam(AravisCam):
+    import gi
+    gi.require_version('Aravis', '0.8')
+    from gi.repository import Aravis
+
     def __init__(self):
         self.fps = 10
         self.exposure_time = 45000
@@ -198,10 +215,10 @@ class MasterRunner(QtWidgets.QWidget):
         self.queue = Queue()
         self.dtype = dtype
         self.shape = shape
-        self.cam = Camera()
+        self.cam = FakeAravisCam()
 
         # Create a queue to share data between process
-        self.queue = self.cam.set_queue(self.queue)
+        self.cam.set_queue(self.queue)
         self.cam.start()
 
         # load ui
