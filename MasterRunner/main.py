@@ -62,8 +62,8 @@ class Camera():
         self.exposure_time = 45000
 
         Aravis.enable_interface("Fake")
-        self.camera = Aravis.Camera.new(None)
-        # self.camera = Aravis.Camera.new('Fake_1')
+        #self.camera = Aravis.Camera.new(None)
+        self.camera = Aravis.Camera.new('Fake_1')
         self.iframe = 0
         #self.dtype = numpy.uint16
         #self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_16)
@@ -75,10 +75,10 @@ class Camera():
         if xbin == 1:
             self.camera.set_binning(1, 2)
             self.camera.set_binning(2, 2)
-        self.camera.set_exposure_time_auto(False)
-        self.camera.set_gain_auto(False)
-        self.camera.set_gain(0)
-        self.camera.set_exposure_time(self.exposure_time)
+        #self.camera.set_exposure_time_auto(False)
+        #self.camera.set_gain_auto(False)
+        #self.camera.set_gain(0)
+        #self.camera.set_exposure_time(self.exposure_time)
         self.camera.set_frame_rate(self.fps)
         payload = self.camera.get_payload()
         [self.x, self.y, self.width, self.height] = self.camera.get_region()
