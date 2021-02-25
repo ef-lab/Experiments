@@ -1,6 +1,6 @@
 # !/usr/bin/env python
-from PyQt5 import uic, QtWidgets
-from PyQt5.QtGui import QPixmap
+from PyQt5 import uic, QtWidgets,QtCore
+from PyQt5.QtGui import QPixmap, QImage
 import time, h5py, os,gi, numpy, datetime, threading
 from queue import Queue
 gi.require_version('Aravis', '0.8')
@@ -58,7 +58,7 @@ class Writer(object):
 
 class Camera():
     def __init__(self):
-        self.fps = 20
+        self.fps = 10
         self.exposure_time = 45000
 
         Aravis.enable_interface("Fake")
@@ -99,10 +99,11 @@ class Camera():
         self.thread_end = threading.Event()
         self.save = threading.Event()
         self.thread_runner = threading.Thread(target=self.capture)  # max insertion rate of 10 events/sec
-        self.queue = Queue()
+        #self.queue = Queue()
 
     def set_queue(self, q):
         self.queue = q
+        return self.queue
 
     def start(self):
         self.camera.start_acquisition()
@@ -158,7 +159,7 @@ class MasterRunner(QtWidgets.QWidget):
         self.cam = Camera()
 
         # Create a queue to share data between process
-        self.cam.set_queue(self.queue)
+        self.queue = self.cam.set_queue(self.queue)
         self.cam.start()
 
         # load ui
@@ -174,13 +175,14 @@ class MasterRunner(QtWidgets.QWidget):
         self.scene = QtWidgets.QGraphicsScene()
         self.ui.graphicsView.setScene(self.scene)
         self.ui.graphicsView.show()
-        self.present = threading.Thread(target=self.updateplot)
-        self.thread_end = threading.Event()
-        self.present.start()
+        timer = QtCore.QTimer(self)
+        timer.timeout.connect(self.updateplot)
+        timer.start(100)
+        self.updateplot()
 
     def updateplot(self):
-        while self.queue.qsize() > 1 and not self.thread_end.is_set():
-            image = self.queue.get()
+        if self.queue.qsize() > 0:
+            image = QPixmap(QImage(self.queue.get(),600,600,600,QImage.Format_Indexed8))
             self.scene.clear()
             self.scene.addPixmap(image)
             self.ui.graphicsView.update()
@@ -199,3 +201,4 @@ if __name__ == "__main__":
     MainApp = MasterRunner()
     MainApp.show()
     MainEventThread.exec()
+c
