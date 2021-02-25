@@ -12,8 +12,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>686</width>
-    <height>579</height>
+    <width>406</width>
+    <height>219</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,10 +22,10 @@
   <widget class="QPushButton" name="rec_button">
    <property name="geometry">
     <rect>
-     <x>130</x>
-     <y>200</y>
-     <width>113</width>
-     <height>32</height>
+     <x>290</x>
+     <y>120</y>
+     <width>101</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -35,7 +35,7 @@
   <widget class="QGraphicsView" name="graphicsView">
    <property name="geometry">
     <rect>
-     <x>430</x>
+     <x>10</x>
      <y>10</y>
      <width>256</width>
      <height>192</height>
@@ -53,17 +53,34 @@
      <height>400</height>
     </size>
    </property>
+   <property name="frameShape">
+    <enum>QFrame::StyledPanel</enum>
+   </property>
+   <property name="frameShadow">
+    <enum>QFrame::Sunken</enum>
+   </property>
    <property name="sizeAdjustPolicy">
     <enum>QAbstractScrollArea::AdjustToContents</enum>
+   </property>
+   <property name="sceneRect">
+    <rectf>
+     <x>0.000000000000000</x>
+     <y>0.000000000000000</y>
+     <width>400.000000000000000</width>
+     <height>399.000000000000000</height>
+    </rectf>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignJustify|Qt::AlignVCenter</set>
    </property>
   </widget>
   <widget class="QPushButton" name="stop_button">
    <property name="geometry">
     <rect>
-     <x>340</x>
-     <y>200</y>
-     <width>113</width>
-     <height>32</height>
+     <x>290</x>
+     <y>150</y>
+     <width>101</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -73,8 +90,8 @@
   <widget class="QLineEdit" name="animal_input">
    <property name="geometry">
     <rect>
-     <x>510</x>
-     <y>340</y>
+     <x>280</x>
+     <y>30</y>
      <width>113</width>
      <height>21</height>
     </rect>
@@ -83,11 +100,37 @@
   <widget class="QLineEdit" name="session_input">
    <property name="geometry">
     <rect>
-     <x>510</x>
-     <y>370</y>
+     <x>280</x>
+     <y>80</y>
      <width>113</width>
      <height>21</height>
     </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>10</y>
+     <width>60</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Animal ID</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>60</y>
+     <width>60</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Session</string>
    </property>
   </widget>
  </widget>

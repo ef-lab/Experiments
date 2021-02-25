@@ -182,7 +182,7 @@ class MasterRunner(QtWidgets.QWidget):
 
     def updateplot(self):
         if self.queue.qsize() > 0:
-            image = QPixmap(QImage(self.queue.get(),600,600,600,QImage.Format_Indexed8))
+            image = QPixmap(QImage(self.queue.get(), 600, 600, 600, QImage.Format_Indexed8))
             self.scene.clear()
             self.scene.addPixmap(image)
             self.ui.graphicsView.update()
@@ -201,4 +201,4 @@ if __name__ == "__main__":
     MainApp = MasterRunner()
     MainApp.show()
     MainEventThread.exec()
-c
+
