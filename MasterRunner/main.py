@@ -1,10 +1,9 @@
 # !/usr/bin/env python
 from PyQt5 import uic, QtWidgets,QtCore
 from PyQt5.QtGui import QPixmap, QImage
-import time, h5py, os,gi, numpy, datetime, threading
+import time, h5py, os, numpy, datetime, threading
 from queue import Queue
-gi.require_version('Aravis', '0.8')
-from gi.repository import Aravis
+
 
 class Writer(object):
     def __init__(self, datapath):
@@ -56,63 +55,28 @@ class Writer(object):
                     chunks=(chunk_len,) + shape)
 
 
-class Camera():
+class Camera:
     def __init__(self):
         self.fps = 10
         self.exposure_time = 45000
-
-        Aravis.enable_interface("Fake")
-        #self.camera = Aravis.Camera.new(None)
-        self.camera = Aravis.Camera.new('Fake_1')
         self.iframe = 0
-        #self.dtype = numpy.uint16
-        #self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_16)
         self.dtype = numpy.uint8
-        self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_8)
-        self.camera.get_payload()
-        self.camera.set_region(180, 0, 600, 600)
-        [xbin, ybin] = self.camera.get_binning()
-        if xbin == 1:
-            self.camera.set_binning(1, 2)
-            self.camera.set_binning(2, 2)
-        #self.camera.set_exposure_time_auto(False)
-        #self.camera.set_gain_auto(False)
-        #self.camera.set_gain(0)
-        #self.camera.set_exposure_time(self.exposure_time)
-        self.camera.set_frame_rate(self.fps)
-        payload = self.camera.get_payload()
         [self.x, self.y, self.width, self.height] = self.camera.get_region()
-        self.stream = self.camera.create_stream(None, None)
-        for i in range(0, 100):
-            self.stream.push_buffer(Aravis.Buffer.new_allocate(payload))
         self.setup()
-
-    def set_frame_rate(self, fps):
-        self.fps = fps
-        self.camera.set_frame_rate(fps)
-
-    def set_exposure_time(self, exposure_time):
-        self.exposure_time = exposure_time * 1000
-        self.camera.set_exposure_time(exposure_time * 1000)
 
     def setup(self):
         self.thread_end = threading.Event()
         self.save = threading.Event()
         self.thread_runner = threading.Thread(target=self.capture)  # max insertion rate of 10 events/sec
-        #self.queue = Queue()
 
-    def set_queue(self, q):
-        self.queue = q
-        return self.queue
+    def set_queue(self, queue):
+        self.queue = queue
 
     def start(self):
-        self.camera.start_acquisition()
         self.thread_runner.start()
 
     def rec(self, filename=''):
         now = datetime.datetime.now()
-        animal_id = 0
-        session = 0
         filename = '%s_%s.h5' % (filename, now.strftime('%Y-%m-%d_%H-%M-%S'))
         print('Starting the recording of %s' % filename)
         self.saver = Writer(filename)
@@ -131,7 +95,7 @@ class Camera():
         while not self.thread_end.is_set():
             image = self.stream.pop_buffer()
             if image:
-                dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
+                dat = self.get_data()
                 # saver.append('sys_timestamps',time.time())
                 if self.save.is_set():
                     print('Saving frame %d' % self.iframe)
@@ -144,10 +108,88 @@ class Camera():
 
     def quit(self):
         self.thread_end.set()
+        self.thread_runner.join()
+        print(self.thread_runner.is_alive())
+        self.saver.exit()
+
+
+class Aravis(Camera):
+    import gi
+    gi.require_version('Aravis', '0.8')
+    from gi.repository import Aravis
+
+    def __init__(self):
+        self.fps = 10
+        self.exposure_time = 45000
+
+        Aravis.enable_interface("Fake")
+        self.camera = Aravis.Camera.new(None)
+        self.iframe = 0
+        self.dtype = numpy.uint16
+        self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_16)
+        self.camera.get_payload()
+        self.camera.set_region(180, 0, 600, 600)
+        xbin, ybin = self.camera.get_binning()
+        if xbin == 1:
+            self.camera.set_binning(1, 2)
+            self.camera.set_binning(2, 2)
+        self.camera.set_exposure_time_auto(False)
+        self.camera.set_gain_auto(False)
+        self.camera.set_gain(0)
+        self.camera.set_exposure_time(self.exposure_time)
+        self.camera.set_frame_rate(self.fps)
+        payload = self.camera.get_payload()
+        self.x, self.y, self.width, self.height = self.camera.get_region()
+        self.stream = self.camera.create_stream(None, None)
+        for i in range(0, 100):
+            self.stream.push_buffer(Aravis.Buffer.new_allocate(payload))
+        self.setup()
+
+    def set_frame_rate(self, fps):
+        self.fps = fps
+        self.camera.set_frame_rate(fps)
+
+    def set_exposure_time(self, exposure_time):
+        self.exposure_time = exposure_time * 1000
+        self.camera.set_exposure_time(exposure_time * 1000)
+
+    def start(self):
+        self.camera.start_acquisition()
+        self.thread_runner.start()
+
+    def get_data(self):
+        return numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
+
+    def quit(self):
+        self.thread_end.set()
         self.camera.stop_acquisition()
         self.thread_runner.join()
         print(self.thread_runner.is_alive())
         self.saver.exit()
+
+
+class FakeAravis(Aravis):
+    def __init__(self):
+        self.fps = 10
+        self.exposure_time = 45000
+        Aravis.enable_interface("Fake")
+        self.camera = Aravis.Camera.new('Fake_1')
+        self.iframe = 0
+        self.dtype = numpy.uint8
+        self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_8)
+        self.camera.get_payload()
+        self.camera.set_region(180, 0, 600, 600)
+        xbin, ybin = self.camera.get_binning()
+        if xbin == 1:
+            self.camera.set_binning(1, 2)
+            self.camera.set_binning(2, 2)
+        self.camera.set_frame_rate(self.fps)
+        payload = self.camera.get_payload()
+        [self.x, self.y, self.width, self.height] = self.camera.get_region()
+        self.stream = self.camera.create_stream(None, None)
+        for i in range(0, 100):
+            self.stream.push_buffer(Aravis.Buffer.new_allocate(payload))
+        self.setup()
 
 
 class MasterRunner(QtWidgets.QWidget):

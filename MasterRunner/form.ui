@@ -13,7 +13,7 @@
     <x>0</x>
     <y>0</y>
     <width>406</width>
-    <height>219</height>
+    <height>279</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -37,8 +37,8 @@
     <rect>
      <x>10</x>
      <y>10</y>
-     <width>256</width>
-     <height>192</height>
+     <width>250</width>
+     <height>250</height>
     </rect>
    </property>
    <property name="sizePolicy">
@@ -49,9 +49,12 @@
    </property>
    <property name="maximumSize">
     <size>
-     <width>400</width>
-     <height>400</height>
+     <width>250</width>
+     <height>250</height>
     </size>
+   </property>
+   <property name="toolTipDuration">
+    <number>24</number>
    </property>
    <property name="frameShape">
     <enum>QFrame::StyledPanel</enum>
@@ -66,8 +69,8 @@
     <rectf>
      <x>0.000000000000000</x>
      <y>0.000000000000000</y>
-     <width>400.000000000000000</width>
-     <height>399.000000000000000</height>
+     <width>250.000000000000000</width>
+     <height>250.000000000000000</height>
     </rectf>
    </property>
    <property name="alignment">
