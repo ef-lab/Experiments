@@ -41,6 +41,9 @@
      <height>192</height>
     </rect>
    </property>
+   <property name="sizeAdjustPolicy">
+    <enum>QAbstractScrollArea::AdjustToContents</enum>
+   </property>
   </widget>
   <widget class="QPushButton" name="stop_button">
    <property name="geometry">
