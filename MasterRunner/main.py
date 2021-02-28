@@ -3,9 +3,8 @@ from PyQt5 import uic, QtWidgets,QtCore
 from PyQt5.QtGui import QPixmap, QImage
 import time, h5py, os, numpy, datetime, threading
 from queue import Queue
-import gi
-gi.require_version('Aravis', '0.8')
-from gi.repository import Aravis
+
+
 class Writer(object):
     def __init__(self, datapath):
         self.datapath = datapath
@@ -39,7 +38,6 @@ class Writer(object):
             time.sleep(.1)
         self.thread_end.set()
         self.thread_runner.join()
-        print(self.thread_runner.is_alive())
 
     class h5Dataset():
         def __init__(self, datapath, dataset, shape, dtype=numpy.uint16, compression="gzip", chunk_len=1):
@@ -58,11 +56,16 @@ class Writer(object):
 
 class Camera:
     def __init__(self):
+        import matplotlib.image as mpimg
+        img = mpimg.imread('image.png')
+        self.img =img[:,:,1]
         self.fps = 10
         self.exposure_time = 45000
         self.iframe = 0
         self.dtype = numpy.uint8
-        [self.x, self.y, self.width, self.height] = self.camera.get_region()
+        sz = numpy.shape(img)
+        self.width = sz[0]
+        self.height = sz[1]
         self.setup()
 
     def setup(self):
@@ -94,18 +97,14 @@ class Camera:
 
     def capture(self):
         while not self.thread_end.is_set():
-            image = self.stream.pop_buffer()
-            if image:
-                dat = self.get_data()
-                # saver.append('sys_timestamps',time.time())
-                if self.save.is_set():
-                    print('Saving frame %d' % self.iframe)
-                    self.iframe += 1
-                    self.saver.append('timestamps', image.get_system_timestamp() * 1e-9)
-                    self.saver.append('frames', dat)
-                    self.saver.append('indexes', self.iframe)
-                self.stream.push_buffer(image)
-                self.queue.put(dat)
+            dat = numpy.uint8(numpy.multiply(self.img,numpy.random.rand(self.width,self.height))*255)
+            if self.save.is_set():
+                self.iframe += 1
+                self.saver.append('timestamps', time.time())
+                self.saver.append('frames', dat[:,:,numpy.newaxis])
+                self.saver.append('indexes', self.iframe)
+            self.queue.put(dat)
+            time.sleep(1/self.fps)
 
     def quit(self):
         self.thread_end.set()
@@ -115,11 +114,11 @@ class Camera:
 
 
 class AravisCam(Camera):
-    import gi
-    gi.require_version('Aravis', '0.8')
-    from gi.repository import Aravis
-
     def __init__(self):
+        import gi
+        gi.require_version('Aravis', '0.8')
+        from gi.repository import Aravis
+
         self.fps = 10
         self.exposure_time = 45000
 
@@ -163,7 +162,6 @@ class AravisCam(Camera):
             image = self.stream.pop_buffer()
             if image:
                 dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
-                # saver.append('sys_timestamps',time.time())
                 if self.save.is_set():
                     print('Saving frame %d' % self.iframe)
                     self.iframe += 1
@@ -182,11 +180,11 @@ class AravisCam(Camera):
 
 
 class FakeAravisCam(AravisCam):
-    import gi
-    gi.require_version('Aravis', '0.8')
-    from gi.repository import Aravis
-
     def __init__(self):
+        import gi
+        gi.require_version('Aravis', '0.8')
+        from gi.repository import Aravis
+
         self.fps = 10
         self.exposure_time = 45000
         Aravis.enable_interface("Fake")
@@ -215,7 +213,7 @@ class MasterRunner(QtWidgets.QWidget):
         self.queue = Queue()
         self.dtype = dtype
         self.shape = shape
-        self.cam = FakeAravisCam()
+        self.cam = Camera()
 
         # Create a queue to share data between process
         self.cam.set_queue(self.queue)
@@ -241,18 +239,20 @@ class MasterRunner(QtWidgets.QWidget):
 
     def updateplot(self):
         if self.queue.qsize() > 0:
-            image = QPixmap(QImage(self.queue.get(), 600, 600, 600, QImage.Format_Indexed8))
+            image = QPixmap(QImage(self.queue.get(), self.cam.height, self.cam.width, self.cam.height, QImage.Format_Indexed8))
             self.scene.clear()
             self.scene.addPixmap(image)
+            self.ui.graphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
             self.ui.graphicsView.update()
+            self.ui.frames.display(self.cam.iframe)
 
-    def quit(self):
+    def closeEvent(self, event):
         print('stopping')
-        self.thread_end.set()
+        #self.thread_end.set()
         self.cam.stop()
         self.cam.quit()
         print('stopped')
-        # self.simulate.kill()
+        event.accept()  # let the window close
 
 
 if __name__ == "__main__":
