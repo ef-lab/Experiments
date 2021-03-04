@@ -1,17 +1,15 @@
 # !/usr/bin/env python
 from PyQt5 import uic, QtWidgets, QtCore
+from PyQt5.QtGui import QPixmap, QImage
 from PyQt5 import QtGui
-import os, numpy,sys
+import os, numpy
 from queue import Queue
 from Camera import *
 
-import sys
-sys.path.insert(0, "~/github/PyMouse")
 
-
-class MasterRunner(QtWidgets.QWidget):
+class Imager(QtWidgets.QWidget):
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
-        super(MasterRunner, self).__init__()
+        super(Imager, self).__init__()
         self.queue = Queue()
         self.dtype = dtype
         self.shape = shape
@@ -40,10 +38,30 @@ class MasterRunner(QtWidgets.QWidget):
         timer.start(100)
         self.updateplot()
 
-    def runTask(self):
-        global logger
-        logger = Logger(protocol=protocol)  # setup logger
-        exec(open(logger.get_protocol()).read())
+    def updateFPS(self):
+        self.fps = self.ui.fps_input.value()
+        self.cam.set_frame_rate(self.fps)
+
+    def updateExposure(self):
+        self.cam.namespace.scale = self.ui.exposure_input.value()
+
+    def setCamera(self):
+        cam = Camera()
+        cam.fps = self.fps
+        cam.set_queue(self.queue)
+        cam.start()
+        return cam
+
+    def updateplot(self):
+        if not self.queue.empty():
+            item = self.queue.get()
+            image = QImage(item['frames'], self.cam.height, self.cam.width, self.cam.height, QImage.Format_Indexed8)
+            image.setColorTable(self.getColorTable())
+            self.scene.clear()
+            self.scene.addPixmap(QPixmap(image))
+            self.ui.graphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
+            self.ui.graphicsView.update()
+            self.ui.frames.display(self.cam.iframe)
 
     def closeEvent(self, event):
         print('stopping')
@@ -52,10 +70,24 @@ class MasterRunner(QtWidgets.QWidget):
         print('stopped')
         event.accept()  # let the window close
 
+    def getColorTable(self):
+        if self.colormap == 'jet':
+            t = lambda i, v: int(min(max(-4.0 * abs(i - 255 * v / 4) + 255 * 3 / 2, 0), 255))
+            color_table = [QtGui.qRgb(t(i, 3), t(i, 2), t(i, 1)) for i in range(256)]
+        elif self.colormap == 'gray':
+            color_table = [QtGui.qRgb(i, i, i) for i in range(256)]
+        return color_table
+
+    def setColorMap(self):
+        if self.ui.color_input.checkState():
+            self.colormap = 'jet'
+        else:
+            self.colormap = 'gray'
+
 
 if __name__ == "__main__":
     MainEventThread = QtWidgets.QApplication([])
-    MainApp = MasterRunner()
+    MainApp = Imager()
     MainApp.show()
     MainEventThread.exec()
 
