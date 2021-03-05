@@ -1,11 +1,12 @@
 # !/usr/bin/env python
 from PyQt5 import uic, QtWidgets, QtCore
 from PyQt5 import QtGui
-import os, numpy,sys
+import os, numpy, sys, threading, time
 from queue import Queue
 from Camera import *
+from Connector import *
 
-import sys
+
 sys.path.insert(0, "~/github/PyMouse")
 
 
@@ -36,7 +37,7 @@ class MasterRunner(QtWidgets.QWidget):
         self.ui.graphicsView.setScene(self.scene)
         self.ui.graphicsView.show()
         timer = QtCore.QTimer(self)
-        timer.timeout.connect(self.updateplot)
+        timer.timeout.connect(self.runner)
         timer.start(100)
         self.updateplot()
 
@@ -44,6 +45,9 @@ class MasterRunner(QtWidgets.QWidget):
         global logger
         logger = Logger(protocol=protocol)  # setup logger
         exec(open(logger.get_protocol()).read())
+
+    def runner(self):
+
 
     def closeEvent(self, event):
         print('stopping')
