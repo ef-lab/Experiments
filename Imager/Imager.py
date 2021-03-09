@@ -1,10 +1,11 @@
-# !/usr/bin/env python
 from PyQt5 import uic, QtWidgets, QtCore
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5 import QtGui
-import os, numpy
-from queue import Queue
+import os, numpy, sys
+from pathlib import Path
+sys.path.append(str(Path.home()) + '/github/Experiments')
 from Camera import *
+from ExpUtils.Communicator import *
 
 
 class Imager(QtWidgets.QWidget):
@@ -13,21 +14,20 @@ class Imager(QtWidgets.QWidget):
         self.queue = Queue()
         self.dtype = dtype
         self.shape = shape
-        self.colormap = 'gray'
+        self.basename = ''
 
         # load ui
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
-
+        self.setColorTable()
         self.fps = self.ui.fps_input.value()
         self.cam = self.setCamera()                    # handle inputs
         
-        self.ui.stop_button.clicked.connect(self.cam.stop)
-        self.ui.rec_button.clicked.connect(lambda: self.cam.rec('%s_%s' % (self.ui.animal_input.text(),
-                                                                           self.ui.session_input.text())))
-        self.ui.color_input.stateChanged.connect(self.setColorMap)
+        self.ui.stop_button.clicked.connect(self.stop_rec)
+        self.ui.rec_button.clicked.connect(self.start_rec)
         self.ui.fps_input.valueChanged.connect(self.updateFPS)
         self.ui.exposure_input.valueChanged.connect(self.updateExposure)
+        self.ui.colormaps.currentIndexChanged.connect(self.setColorTable)
 
         # set view window
         self.scene = QtWidgets.QGraphicsScene()
@@ -37,6 +37,23 @@ class Imager(QtWidgets.QWidget):
         timer.timeout.connect(self.updateplot)
         timer.start(100)
         self.updateplot()
+        self.conn = Communicator(role='client')
+        self.conn.register_callback(dict(start=self.start_rec))
+        self.conn.register_callback(dict(stop=self.stop_rec))
+        self.conn.register_callback(dict(basename=self.set_basename))
+
+    def set_basename(self, key):
+        self.basename = key['basename']
+
+    def start_rec(self, *args):
+        self.ui.rec_button.setDown(True)
+        self.ui.stop_button.setDown(False)
+        filename = self.cam.rec(basename=self.basename)
+        self.conn.send(dict(started=True, filename=filename, program='Imager'))
+
+    def stop_rec(self, *args):
+        self.ui.rec_button.setDown(False)
+        self.cam.stop()
 
     def updateFPS(self):
         self.fps = self.ui.fps_input.value()
@@ -56,7 +73,7 @@ class Imager(QtWidgets.QWidget):
         if not self.queue.empty():
             item = self.queue.get()
             image = QImage(item['frames'], self.cam.height, self.cam.width, self.cam.height, QImage.Format_Indexed8)
-            image.setColorTable(self.getColorTable())
+            image.setColorTable(self.color_table)
             self.scene.clear()
             self.scene.addPixmap(QPixmap(image))
             self.ui.graphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
@@ -67,22 +84,17 @@ class Imager(QtWidgets.QWidget):
         print('stopping')
         self.cam.stop()
         self.cam.quit()
+        self.conn.quit()
         print('stopped')
         event.accept()  # let the window close
 
-    def getColorTable(self):
-        if self.colormap == 'jet':
+    def setColorTable(self):
+        colormap = str(self.ui.colormaps.currentText())
+        if colormap == 'jet':
             t = lambda i, v: int(min(max(-4.0 * abs(i - 255 * v / 4) + 255 * 3 / 2, 0), 255))
-            color_table = [QtGui.qRgb(t(i, 3), t(i, 2), t(i, 1)) for i in range(256)]
-        elif self.colormap == 'gray':
-            color_table = [QtGui.qRgb(i, i, i) for i in range(256)]
-        return color_table
-
-    def setColorMap(self):
-        if self.ui.color_input.checkState():
-            self.colormap = 'jet'
-        else:
-            self.colormap = 'gray'
+            self.color_table = [QtGui.qRgb(t(i, 3), t(i, 2), t(i, 1)) for i in range(256)]
+        elif colormap == 'gray':
+            self.color_table = [QtGui.qRgb(i, i, i) for i in range(256)]
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MasterRunner</class>
- <widget class="QWidget" name="MasterRunner">
+ <class>Imager</class>
+ <widget class="QWidget" name="Imager">
   <property name="windowModality">
    <enum>Qt::ApplicationModal</enum>
   </property>
@@ -12,21 +12,24 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>455</width>
-    <height>364</height>
+    <width>431</width>
+    <height>280</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MasterRunner</string>
+   <string>Imager</string>
   </property>
   <widget class="QPushButton" name="rec_button">
    <property name="geometry">
     <rect>
-     <x>270</x>
-     <y>120</y>
-     <width>101</width>
+     <x>280</x>
+     <y>230</y>
+     <width>61</width>
      <height>31</height>
     </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{background-color : white;border-radius: 5px;border-style: outset;border-width: .5px;border-color: gray;}QPushButton::pressed{border-style: inset;border-color: gray;background-color : red;}</string>
    </property>
    <property name="text">
     <string>Rec</string>
@@ -35,73 +38,33 @@
   <widget class="QPushButton" name="stop_button">
    <property name="geometry">
     <rect>
-     <x>270</x>
-     <y>150</y>
-     <width>101</width>
+     <x>350</x>
+     <y>230</y>
+     <width>61</width>
      <height>31</height>
     </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{background-color : white;border-radius: 5px;border-style: outset;border-width: .5px;border-color: gray;}QPushButton::pressed{border-style: inset;border-color: gray;}</string>
    </property>
    <property name="text">
     <string>Stop</string>
    </property>
   </widget>
-  <widget class="QLineEdit" name="animal_input">
-   <property name="geometry">
-    <rect>
-     <x>280</x>
-     <y>30</y>
-     <width>113</width>
-     <height>21</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLineEdit" name="session_input">
-   <property name="geometry">
-    <rect>
-     <x>280</x>
-     <y>80</y>
-     <width>113</width>
-     <height>21</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label">
-   <property name="geometry">
-    <rect>
-     <x>280</x>
-     <y>10</y>
-     <width>60</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Animal ID</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_2">
-   <property name="geometry">
-    <rect>
-     <x>280</x>
-     <y>60</y>
-     <width>60</width>
-     <height>16</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Session</string>
-   </property>
-  </widget>
   <widget class="QSpinBox" name="fps_input">
    <property name="geometry">
     <rect>
-     <x>300</x>
-     <y>200</y>
+     <x>380</x>
+     <y>40</y>
      <width>42</width>
      <height>22</height>
     </rect>
    </property>
    <property name="acceptDrops">
     <bool>true</bool>
+   </property>
+   <property name="styleSheet">
+    <string notr="true"/>
    </property>
    <property name="frame">
     <bool>true</bool>
@@ -118,22 +81,35 @@
    <property name="singleStep">
     <number>5</number>
    </property>
+   <property name="value">
+    <number>20</number>
+   </property>
   </widget>
-  <widget class="QComboBox" name="comboBox">
+  <widget class="QComboBox" name="colormaps">
    <property name="geometry">
     <rect>
-     <x>270</x>
-     <y>230</y>
-     <width>91</width>
+     <x>280</x>
+     <y>90</y>
+     <width>101</width>
      <height>32</height>
     </rect>
    </property>
+   <item>
+    <property name="text">
+     <string>gray</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>jet</string>
+    </property>
+   </item>
   </widget>
   <widget class="QLabel" name="label_3">
    <property name="geometry">
     <rect>
-     <x>300</x>
-     <y>180</y>
+     <x>370</x>
+     <y>20</y>
      <width>60</width>
      <height>16</height>
     </rect>
@@ -142,45 +118,13 @@
     <string>fps</string>
    </property>
   </widget>
-  <widget class="QSlider" name="exposure_input">
-   <property name="geometry">
-    <rect>
-     <x>410</x>
-     <y>100</y>
-     <width>22</width>
-     <height>160</height>
-    </rect>
-   </property>
-   <property name="maximum">
-    <number>1512</number>
-   </property>
-   <property name="value">
-    <number>255</number>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Vertical</enum>
-   </property>
-  </widget>
-  <widget class="QCheckBox" name="color_input">
-   <property name="geometry">
-    <rect>
-     <x>360</x>
-     <y>190</y>
-     <width>86</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>False Color</string>
-   </property>
-  </widget>
   <widget class="QLCDNumber" name="frames">
    <property name="geometry">
     <rect>
-     <x>370</x>
-     <y>50</y>
-     <width>64</width>
-     <height>23</height>
+     <x>313</x>
+     <y>170</y>
+     <width>101</width>
+     <height>41</height>
     </rect>
    </property>
    <property name="font">
@@ -203,10 +147,78 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>30</y>
-     <width>256</width>
-     <height>231</height>
+     <y>10</y>
+     <width>250</width>
+     <height>250</height>
     </rect>
+   </property>
+  </widget>
+  <widget class="QSpinBox" name="spinBox">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>40</y>
+     <width>71</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="maximum">
+    <number>2000</number>
+   </property>
+   <property name="value">
+    <number>600</number>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>70</y>
+     <width>60</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>colormap</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_5">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>20</y>
+     <width>60</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>size</string>
+   </property>
+  </widget>
+  <widget class="QSlider" name="exposure_input">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>150</y>
+     <width>131</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_6">
+   <property name="geometry">
+    <rect>
+     <x>280</x>
+     <y>130</y>
+     <width>60</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>exposure</string>
    </property>
   </widget>
  </widget>

@@ -1,17 +1,17 @@
 import time, numpy, datetime, threading
 import multiprocessing as mp
-from Writer import Writer
+from ExpUtils.Writer import Writer
 
 
 class Camera:
     def __init__(self):
-        import matplotlib.image as mpimg
-        img = mpimg.imread('image.png')
+        #img = mpimg.imread('image.png')
         self.fps = 10
         self.exposure_time = 45000
         self.iframe = 0
-        self.img = img[:, :, 1]
+        #self.img = img[:, :, 1]
         self.dtype = numpy.uint8
+        img = numpy.random.rand(600,600)
         sz = numpy.shape(img)
         self.width = sz[0]
         self.height = sz[1]
@@ -37,15 +37,16 @@ class Camera:
     def start(self):
         self.thread_runner.start()
 
-    def rec(self, filename=''):
+    def rec(self, basename=''):
         now = datetime.datetime.now()
-        filename = '%s_%s.h5' % (filename, now.strftime('%Y-%m-%d_%H-%M-%S'))
+        filename = '%s_%s.h5' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
         print('Starting the recording of %s' % filename)
         self.saver = Writer(filename)
         self.saver.datasets.createDataset('frames', shape=(self.width, self.height, 1), dtype=self.dtype)
         self.saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
         self.iframe = 0
         self.save.set()
+        return filename
 
     def stop(self):
         print('Wrote %d frames' % self.iframe)
@@ -70,8 +71,9 @@ class Camera:
     def capture(self,namespace):
         while not self.capture_end.is_set():
             item = dict()
-            img = numpy.uint8(numpy.minimum(self.img*namespace.scale,numpy.ones(numpy.shape(self.img))*255))
+            #img = numpy.uint8(numpy.minimum(self.img*namespace.scale,numpy.ones(numpy.shape(self.img))*255))
             #img = numpy.uint8(numpy.multiply(self.img, numpy.random.random(numpy.shape(self.img)) * namespace.scale))
+            img = numpy.uint8(numpy.random.random((600,600)) * namespace.scale)
             item['frames'] = img[:, :, numpy.newaxis]
             item['timestamps'] = time.time()
             self.cam_queue.put(item)
