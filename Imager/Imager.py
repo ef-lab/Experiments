@@ -9,12 +9,14 @@ from ExpUtils.Communicator import *
 
 
 class Imager(QtWidgets.QWidget):
-    def __init__(self, shape=(600, 600), dtype=numpy.int16):
+    def __init__(self, dtype=numpy.int16, shape=(600,600)):
         super(Imager, self).__init__()
         self.queue = Queue()
         self.dtype = dtype
         self.shape = shape
         self.basename = ''
+        self.basepath = str(Path.home()) + '/data/'
+        self.filename = ''
 
         # load ui
         path = os.path.join(os.path.dirname(__file__), "form.ui")
@@ -22,7 +24,7 @@ class Imager(QtWidgets.QWidget):
         self.setColorTable()
         self.fps = self.ui.fps_input.value()
         self.cam = self.setCamera()                    # handle inputs
-        
+        self.shape = (self.ui.X_sz.value(), self.ui.Y_sz.value())
         self.ui.stop_button.clicked.connect(self.stop_rec)
         self.ui.rec_button.clicked.connect(self.start_rec)
         self.ui.fps_input.valueChanged.connect(self.updateFPS)
@@ -48,12 +50,13 @@ class Imager(QtWidgets.QWidget):
     def start_rec(self, *args):
         self.ui.rec_button.setDown(True)
         self.ui.stop_button.setDown(False)
-        filename = self.cam.rec(basename=self.basename)
-        self.conn.send(dict(started=True, filename=filename, program='Imager'))
+        self.filename = self.cam.rec(basename=self.basepath + self.basename)
+        self.conn.send(dict(started=True, filename=self.filename, program='Imager'))
 
     def stop_rec(self, *args):
         self.ui.rec_button.setDown(False)
         self.cam.stop()
+        self.conn.send(dict(stopped=True))
 
     def updateFPS(self):
         self.fps = self.ui.fps_input.value()
@@ -63,7 +66,7 @@ class Imager(QtWidgets.QWidget):
         self.cam.namespace.scale = self.ui.exposure_input.value()
 
     def setCamera(self):
-        cam = Camera()
+        cam = Camera(shape=self.shape)
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()

@@ -4,17 +4,13 @@ from ExpUtils.Writer import Writer
 
 
 class Camera:
-    def __init__(self):
-        #img = mpimg.imread('image.png')
+    def __init__(self, shape=(600, 600)):
         self.fps = 10
         self.exposure_time = 45000
         self.iframe = 0
-        #self.img = img[:, :, 1]
         self.dtype = numpy.uint8
-        img = numpy.random.rand(600,600)
-        sz = numpy.shape(img)
-        self.width = sz[0]
-        self.height = sz[1]
+        self.width = shape[0]
+        self.height = shape[1]
         self.setup()
 
     def setup(self):
@@ -73,7 +69,7 @@ class Camera:
             item = dict()
             #img = numpy.uint8(numpy.minimum(self.img*namespace.scale,numpy.ones(numpy.shape(self.img))*255))
             #img = numpy.uint8(numpy.multiply(self.img, numpy.random.random(numpy.shape(self.img)) * namespace.scale))
-            img = numpy.uint8(numpy.random.random((600,600)) * namespace.scale)
+            img = numpy.uint8(numpy.random.random((self.width,self.height)) * namespace.scale)
             item['frames'] = img[:, :, numpy.newaxis]
             item['timestamps'] = time.time()
             self.cam_queue.put(item)

@@ -9,7 +9,7 @@ sys.path.append(str(Path.home()) + '/github/Experiments')
 from Experiments import *
 from Logger import *
 from ExpUtils.Communicator import *
-
+from ExpUtils.Copier import *
 
 class MasterRunner(QtWidgets.QWidget):
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
@@ -20,7 +20,10 @@ class MasterRunner(QtWidgets.QWidget):
         self.colormap = 'gray'
         self.animal_id = ''
         self.session = ''
+        self.rec_info = ''
+        self.targetpath = str(Path.home()) + '/target/'
         self.logger = Logger()
+        self.copier = Copier()
         self.rec_started = False
 
         # load ui
@@ -32,10 +35,12 @@ class MasterRunner(QtWidgets.QWidget):
         self.conn = Communicator(connect_callback=self.ui.led_button.setDown)
         self.ui.animal_input.textChanged.connect(self.update_animal_id)
         self.conn.register_callback(dict(started=self.set_rec_info))
+        self.conn.register_callback(dict(stopped=self.stop_rec))
 
     def set_rec_info(self, key):
         self.rec_started = True
-        print(key)
+        self.rec_info = key
+        self.ui.file.setText(os.path.basename(self.rec_info['filename']))
 
     def update_animal_id(self):
         self.animal_id = self.ui.animal_input.text()
@@ -61,19 +66,32 @@ class MasterRunner(QtWidgets.QWidget):
         print('started task')
         time.sleep(1)
         self.session = self.logger.get_setup_info('session')
-        self.ui.session.setText(str(self.session))
+        sess = str(self.session)
+        self.ui.session_id.setText(sess)
+
+    def stop_rec(self, *args):
+        self.rec_started = False
+        if isinstance(self.rec_info, dict) and os.path.isfile(self.rec_info['filename']) and self.ui.autocopy.checkState():
+            target_file = os.path.join(self.targetpath, os.path.basename(self.rec_info['filename']))
+            print('Copying file %s' % target_file)
+            self.copier.append(self.rec_info['filename'], target_file)
 
     def stop(self):
-        self.ui.start_button.setDown(False)
-        self.rec_started = False
-        self.ui.start_button.setText("Start")
+        self.logger.update_setup_info(dict(status='stop'))
+        self.ui.start_button.setText("Stopping")
+        while self.logger.get_setup_info('status') != 'exit':
+            time.sleep(.1)
         self.conn.send('stop')
-        self.logger.update_setup_info(dict(status='exit'))
+        while self.rec_started and not self.ui.led_button.isDown:
+            time.sleep(.1)
+        self.ui.start_button.setDown(False)
+        self.ui.start_button.setText("Strt")
 
     def closeEvent(self, event):
         self.conn.quit()
         self.logger.update_setup_info(dict(status='exit'))
         self.logger.cleanup()
+        self.copier.exit()
         event.accept()  # let the window close
 
 
