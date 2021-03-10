@@ -11,6 +11,7 @@ from Logger import *
 from ExpUtils.Communicator import *
 from ExpUtils.Copier import *
 
+
 class MasterRunner(QtWidgets.QWidget):
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
         super(MasterRunner, self).__init__()
@@ -51,7 +52,8 @@ class MasterRunner(QtWidgets.QWidget):
         Popen('sh Imager.sh', cwd="../", shell=True)
 
     def runTask(self, task):
-        self.pymouse_proc = Popen('python3 ~/github/PyMouse/run.py %d' % task, cwd='/Users/eman/github/PyMouse/', shell=True)
+        self.pymouse_proc = Popen('python3 ~/github/PyMouse/run.py %d' % task,
+                                  cwd=str(Path.home())+'/PyMouse/', shell=True)
 
     def start(self):
         self.ui.start_button.setDown(True)
