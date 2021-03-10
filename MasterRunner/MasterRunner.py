@@ -71,10 +71,13 @@ class MasterRunner(QtWidgets.QWidget):
 
     def stop_rec(self, *args):
         self.rec_started = False
-        if isinstance(self.rec_info, dict) and os.path.isfile(self.rec_info['filename']) and self.ui.autocopy.checkState():
-            target_file = os.path.join(self.targetpath, os.path.basename(self.rec_info['filename']))
+        source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
+        if isinstance(self.rec_info, dict) and os.path.isfile(source_file) and self.ui.autocopy.checkState():
+            target_file = os.path.join(self.targetpath, self.rec_info['filename'])
             print('Copying file %s' % target_file)
-            self.copier.append(self.rec_info['filename'], target_file)
+            self.copier.append(source_file, target_file)
+            self.logger.log('Files', dict(self.rec_info, target_path=self.targetpath,
+                                          animal_id=self.animal_id, session=self.session))
 
     def stop(self):
         self.logger.update_setup_info(dict(status='stop'))
