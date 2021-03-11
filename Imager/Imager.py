@@ -11,7 +11,7 @@ from ExpUtils.Communicator import *
 class Imager(QtWidgets.QWidget):
     def __init__(self, dtype=numpy.int16, shape=(600, 600)):
         super(Imager, self).__init__()
-        self.queue = Queue()
+        self.queue = Queue(maxsize=2)
         self.dtype = dtype
         self.shape = shape
         self.basename = ''
@@ -29,6 +29,7 @@ class Imager(QtWidgets.QWidget):
         self.ui.rec_button.clicked.connect(self.start_rec)
         self.ui.fps_input.valueChanged.connect(self.updateFPS)
         self.ui.exposure_input.valueChanged.connect(self.updateExposure)
+        self.ui.gain_input.valueChanged.connect(self.updateGain)
         self.ui.colormaps.currentIndexChanged.connect(self.setColorTable)
 
         # set view window
@@ -60,16 +61,22 @@ class Imager(QtWidgets.QWidget):
         self.conn.send(dict(stopped=True))
 
     def updateFPS(self):
-        if not self.ui.rec_button.isDown:
+        if not self.ui.rec_button.isDown():
             self.fps = self.ui.fps_input.value()
             self.cam.set_frame_rate(self.fps)
 
     def updateExposure(self):
-        if not self.ui.rec_button.isDown:
+        print('Updating exposure')
+        if not self.ui.rec_button.isDown():
+            print('yep')
             self.cam.set_exposure_time(self.ui.exposure_input.value())
 
+    def updateGain(self):
+        if not self.ui.rec_button.isDown():
+            self.cam.set_gain(self.ui.gain_input.value())
+
     def setCamera(self):
-        cam = FakeAravisCam(shape=self.shape)
+        cam = AravisCam(shape=self.shape)
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()
@@ -78,7 +85,7 @@ class Imager(QtWidgets.QWidget):
     def updateplot(self):
         if not self.queue.empty():
             item = self.queue.get()
-            image = QImage(item['frames'], self.cam.height, self.cam.width, self.cam.height, QImage.Format_Indexed8)
+            image = QImage(item, self.cam.height, self.cam.width, self.cam.height, QImage.Format_Indexed8)
             image.setColorTable(self.color_table)
             self.scene.clear()
             self.scene.addPixmap(QPixmap(image))

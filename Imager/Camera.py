@@ -1,27 +1,28 @@
 import time, numpy, datetime, threading
 import multiprocessing as mp
 from ExpUtils.Writer import Writer
+from queue import Queue
 
 
 class Camera:
     def __init__(self, shape=(600, 600)):
-        self.fps = 10
+        self.fps = 2
         self.exposure_time = 45000
         self.iframe = 0
         self.dtype = numpy.uint8
         self.width = shape[0]
         self.height = shape[1]
-        self.setup()
-
-    def setup(self):
         mgr = mp.Manager()
         self.namespace = mgr.Namespace()
         self.namespace.fps = self.fps
         self.namespace.scale = 255
+        self.setup()
 
-        self.cam_queue = mp.Queue()
-        self.capture_end = mp.Event()
-        self.capture_runner = mp.Process(target=self.capture, args=(self.namespace,))
+    def setup(self):
+
+        self.cam_queue = Queue()
+        self.capture_end = threading.Event()
+        self.capture_runner = threading.Thread(target=self.capture, args=(self.cam_queue,))
         self.capture_runner.start()
         self.save = threading.Event()
         self.thread_end = threading.Event()
@@ -62,7 +63,9 @@ class Camera:
                     self.iframe += 1
                     self.saver.append('timestamps', item['timestamps'])
                     self.saver.append('frames', item['frames'])
-                self.process_queue.put(item)
+                if self.process_queue.full():
+                    self.process_queue.get()
+                self.process_queue.put(numpy.uint8(item/16000*255))
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -78,9 +81,9 @@ class Camera:
     def quit(self):
         print('Stopping...')
         self.capture_end.set()
-        self.capture_runner.join()
+        #self.capture_runner.join()
         self.thread_end.set()
-        self.thread_runner.join()
+        #self.thread_runner.join()
         if hasattr(self, 'saver'):
             self.saver.exit()
 
@@ -91,13 +94,14 @@ class AravisCam(Camera):
         gi.require_version('Aravis', '0.8')
         from gi.repository import Aravis
 
-        self.fps = 10
-        self.exposure_time = 45000
+        self.fps = 1
+        self.exposure_time = 10500
         self.iframe = 0
         self.setup_camera()
         self.camera.get_payload()
         self.camera.set_region(180, 0, shape[0], shape[1])
         xbin, ybin = self.camera.get_binning()
+
         if xbin == 1:
             self.camera.set_binning(1, 2)
             self.camera.set_binning(2, 2)
@@ -116,32 +120,34 @@ class AravisCam(Camera):
         self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_16)
         self.camera.set_exposure_time_auto(False)
         self.camera.set_gain_auto(False)
-        self.camera.set_gain(0)
+        self.camera.set_gain(2)
         self.camera.set_exposure_time(self.exposure_time)
 
     def set_frame_rate(self, fps):
+        print('Setting frame rate')
         self.fps = fps
         self.camera.set_frame_rate(fps)
 
     def set_exposure_time(self, exposure_time):
+        print('Setting exposure')
         self.exposure_time = exposure_time * 1000
         self.camera.set_exposure_time(exposure_time * 1000)
+
+    def set_gain(self, gain):
+        print('Setting gain')
+        self.camera.set_gain(gain)
 
     def start(self):
         self.camera.start_acquisition()
         self.thread_runner.start()
 
-    def capture(self, namespace):
+    def capture(self, q):
         while not self.capture_end.is_set():
             image = self.stream.pop_buffer()
             if image:
-                dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
-                if self.save.is_set():
-                    self.iframe += 1
-                    self.saver.append('timestamps', image.get_system_timestamp() * 1e-9)
-                    self.saver.append('frames', dat)
+                dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(self.width, self.height, 1))
                 self.stream.push_buffer(image)
-                self.queue.put(dat)
+                q.put(dat)
 
     def quit(self):
         self.camera.stop_acquisition()

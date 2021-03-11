@@ -89,7 +89,7 @@ class Communicator:
             try:
                 # connect if not connected
                 if not self.connected.value:
-                    print('Trying to connect')
+                    #print('Trying to connect')
                     self.connected.value = self.tcp.connect()
                 else:
                     # read available messages and put them in a queque
