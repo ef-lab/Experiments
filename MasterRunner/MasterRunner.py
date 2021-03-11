@@ -84,7 +84,7 @@ class MasterRunner(QtWidgets.QWidget):
     def stop(self):
         self.logger.update_setup_info(dict(status='exit'))
         self.ui.start_button.setText("Stopping")
-        while self.pymouse_proc.poll():
+        while self.pymouse_proc.poll() is None:
             time.sleep(.1)
         self.conn.send('stop')
         while self.rec_started and not self.ui.led_button.isDown:

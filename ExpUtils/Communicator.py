@@ -61,7 +61,7 @@ class Slave(Connector):
                 time.sleep(1)
                 return False
         except:
-            time.sleep(5)
+            time.sleep(1)
             return False
 
 
