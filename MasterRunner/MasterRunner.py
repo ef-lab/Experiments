@@ -53,7 +53,7 @@ class MasterRunner(QtWidgets.QWidget):
 
     def runTask(self, task):
         self.pymouse_proc = Popen('python3 ~/github/PyMouse/run.py %d' % task,
-                                  cwd=str(Path.home())+'/PyMouse/', shell=True)
+                                  cwd=str(Path.home())+'/github/PyMouse/', shell=True)
 
     def start(self):
         self.ui.start_button.setDown(True)

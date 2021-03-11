@@ -9,7 +9,7 @@ from ExpUtils.Communicator import *
 
 
 class Imager(QtWidgets.QWidget):
-    def __init__(self, dtype=numpy.int16, shape=(600,600)):
+    def __init__(self, dtype=numpy.int16, shape=(600, 600)):
         super(Imager, self).__init__()
         self.queue = Queue()
         self.dtype = dtype
@@ -51,7 +51,6 @@ class Imager(QtWidgets.QWidget):
         self.ui.rec_button.setDown(True)
         self.ui.stop_button.setDown(False)
         self.filename = self.cam.rec(basename=self.basepath + self.basename)
-        os
         self.conn.send(dict(started=True, source_path=os.path.dirname(self.filename),
                             filename=os.path.basename(self.filename), program='Imager'))
 

@@ -14,6 +14,9 @@ class Dataset(object):
     def get(self, dataset):
         return self.datasets[dataset]
 
+    def update_i(self, dataset):
+        self.datasets[dataset].i += 1
+
     class h5Dataset():
         def __init__(self, datapath, dataset, shape, dtype=numpy.uint16, compression="gzip", chunk_len=1):
             with h5py.File(datapath, mode='a') as h5f:
@@ -53,7 +56,7 @@ class Writer(object):
                     dset = h5f[values['dataset']]
                     dset.resize((d.i + 1,) + d.shape)
                     dset[d.i] = [values['data']]
-                    d.i += 1
+                    datasets.update_i(values['dataset'])
                     h5f.flush()
             else:
                 time.sleep(.1)
