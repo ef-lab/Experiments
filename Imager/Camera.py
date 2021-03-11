@@ -110,6 +110,7 @@ class AravisCam(Camera):
         self.setup()
 
     def setup_camera(self):
+        from gi.repository import Aravis
         self.camera = Aravis.Camera.new(None)
         self.dtype = numpy.uint16
         self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_16)
@@ -130,8 +131,8 @@ class AravisCam(Camera):
         self.camera.start_acquisition()
         self.thread_runner.start()
 
-    def capture(self):
-        while not self.thread_end.is_set():
+    def capture(self, namespace):
+        while not self.capture_end.is_set():
             image = self.stream.pop_buffer()
             if image:
                 dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(600, 600, 1))
@@ -149,6 +150,7 @@ class AravisCam(Camera):
 
 class FakeAravisCam(AravisCam):
     def setup_camera(self):
+        from gi.repository import Aravis
         Aravis.enable_interface("Fake")
         self.camera = Aravis.Camera.new('Fake_1')
         self.dtype = numpy.uint8
