@@ -60,14 +60,16 @@ class Imager(QtWidgets.QWidget):
         self.conn.send(dict(stopped=True))
 
     def updateFPS(self):
-        self.fps = self.ui.fps_input.value()
-        self.cam.set_frame_rate(self.fps)
+        if not self.ui.rec_button.isDown:
+            self.fps = self.ui.fps_input.value()
+            self.cam.set_frame_rate(self.fps)
 
     def updateExposure(self):
-        self.cam.namespace.scale = self.ui.exposure_input.value()
+        if not self.ui.rec_button.isDown:
+            self.cam.set_exposure_time(self.ui.exposure_input.value())
 
     def setCamera(self):
-        cam = Camera(shape=self.shape)
+        cam = FakeAravisCam(shape=self.shape)
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()
