@@ -82,15 +82,15 @@ class MasterRunner(QtWidgets.QWidget):
                                           animal_id=self.animal_id, session=self.session))
 
     def stop(self):
-        self.logger.update_setup_info(dict(status='stop'))
+        self.logger.update_setup_info(dict(status='exit'))
         self.ui.start_button.setText("Stopping")
-        while self.logger.get_setup_info('status') != 'exit':
+        while self.pymouse_proc.poll():
             time.sleep(.1)
         self.conn.send('stop')
         while self.rec_started and not self.ui.led_button.isDown:
             time.sleep(.1)
         self.ui.start_button.setDown(False)
-        self.ui.start_button.setText("Strt")
+        self.ui.start_button.setText("Start")
 
     def closeEvent(self, event):
         self.conn.quit()
