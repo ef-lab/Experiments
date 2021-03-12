@@ -36,6 +36,7 @@ class Imager(QtWidgets.QWidget):
         self.scene = QtWidgets.QGraphicsScene()
         self.ui.graphicsView.setScene(self.scene)
         self.ui.graphicsView.show()
+        self.ui.graphicsView.rotate(0)
         timer = QtCore.QTimer(self)
         timer.timeout.connect(self.updateplot)
         timer.start(100)
@@ -63,8 +64,8 @@ class Imager(QtWidgets.QWidget):
     def updateFPS(self):
         if not self.ui.rec_button.isDown():
             fps = self.cam.set_frame_rate(self.ui.fps_input.value())
-            self.ui.fps_input.setValue(fps)
             self.fps = fps
+            self.ui.fps_input.setValue(fps)
 
     def updateExposure(self):
         if not self.ui.rec_button.isDown():
@@ -84,13 +85,14 @@ class Imager(QtWidgets.QWidget):
     def updateplot(self):
         if not self.queue.empty():
             item = self.queue.get()
-            image = QImage(item, self.cam.height, self.cam.width, self.cam.height, QImage.Format_Indexed8)
+            image = QImage(item, self.cam.width, self.cam.height, self.cam.width, QImage.Format_Indexed8)
             image.setColorTable(self.color_table)
             self.scene.clear()
             self.scene.addPixmap(QPixmap(image))
             self.ui.graphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
             self.ui.graphicsView.update()
             self.ui.frames.display(self.cam.iframe)
+            self.ui.fps_indicator.display(int(self.cam.reported_framerate))
 
     def closeEvent(self, event):
         print('stopping')

@@ -17,12 +17,13 @@ class Camera:
         self.namespace.fps = self.fps
         self.namespace.scale = 255
         self.setup()
+        self.time = 0
+        self.reported_framerate = 0
 
     def setup(self):
-
         self.cam_queue = Queue()
         self.capture_end = threading.Event()
-        self.capture_runner = threading.Thread(target=self.capture, args=(self.cam_queue,))
+        self.capture_runner = threading.Thread(target=self.capture, args=(self.cam_queue, self.stream))
         self.capture_runner.start()
         self.save = threading.Event()
         self.thread_end = threading.Event()
@@ -65,7 +66,10 @@ class Camera:
                     self.saver.append('frames', item['frames'])
                 if self.process_queue.full():
                     self.process_queue.get()
-                self.process_queue.put(numpy.uint8(item/16000*255))
+                #print(cam_queue.qsize())
+                self.reported_framerate = 1/(item['timestamps'] - self.time)
+                self.time = item['timestamps']
+                self.process_queue.put(numpy.uint8(item['frames']/16000*255))
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -96,13 +100,20 @@ class AravisCam(Camera):
 
         self.Aravis = Aravis
         self.fps = 1
+        self.time = 0
         self.exposure_time = 40000
         self.iframe = 0
         self.setup_camera()
         self.camera.get_payload()
+        #self.camera.set_binning(2, 1)
+        self.camera.set_binning(1, 1)
         self.camera.set_region(180, 0, shape[0], shape[1])
         xbin, ybin = self.camera.get_binning()
-
+        print(shape)
+        print(xbin)
+        self.reported_framerate = 0
+        #self.camera.set_binning(1, 2)
+        #self.camera.set_binning(1, 1)
         if xbin == 1:
             self.camera.set_binning(1, 2)
             self.camera.set_binning(2, 2)
@@ -111,7 +122,7 @@ class AravisCam(Camera):
         self.x, self.y, self.width, self.height = self.camera.get_region()
         self.stream = self.camera.create_stream(None, None)
         for i in range(0, 100):
-            self.stream.push_buffer(Aravis.Buffer.new_allocate(payload))
+            self.stream.push_buffer(self.Aravis.Buffer.new_allocate(payload))
         self.setup()
 
     def setup_camera(self):
@@ -124,7 +135,7 @@ class AravisCam(Camera):
         self.camera.set_exposure_time(self.exposure_time)
 
     def set_frame_rate(self, fps):
-        max_exposure = 1000000 / fps * 0.9
+        max_exposure = 1000000 / fps * 0.95
         if self.exposure_time > max_exposure:
             print('Exposure higher than fps allows..')
             self.set_exposure_time(max_exposure)
@@ -133,10 +144,12 @@ class AravisCam(Camera):
         self.fps = fps
         self.camera.stop_acquisition()
         self.camera.set_frame_rate(fps)
+        print('Frame rate is at %d' % self.camera.get_frame_rate())
         self.camera.start_acquisition()
+        return fps
 
     def set_exposure_time(self, exposure_time):
-        max_exp = 1000000/self.fps * 0.9
+        max_exp = 1000000/self.fps * 0.95
         if exposure_time > max_exp:
             print('Exposure higher than fps allows..')
             exposure_time = max_exp
@@ -155,13 +168,16 @@ class AravisCam(Camera):
         self.camera.start_acquisition()
         self.thread_runner.start()
 
-    def capture(self, q):
+    def capture(self, q, stream):
         while not self.capture_end.is_set():
-            image = self.stream.pop_buffer()
+            image = stream.pop_buffer()
             if image:
+                item = dict()
                 dat = numpy.ndarray(buffer=image.get_data(), dtype=self.dtype, shape=(self.width, self.height, 1))
-                self.stream.push_buffer(image)
-                q.put(dat)
+                stream.push_buffer(image)
+                item['frames'] = dat
+                item['timestamps'] = time.time()
+                q.put(item)
 
     def quit(self):
         self.camera.stop_acquisition()
