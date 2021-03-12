@@ -62,14 +62,13 @@ class Imager(QtWidgets.QWidget):
 
     def updateFPS(self):
         if not self.ui.rec_button.isDown():
-            self.fps = self.ui.fps_input.value()
-            self.cam.set_frame_rate(self.fps)
+            fps = self.cam.set_frame_rate(self.ui.fps_input.value())
+            self.ui.fps_input.setValue(fps)
+            self.fps = fps
 
     def updateExposure(self):
-        print('Updating exposure')
         if not self.ui.rec_button.isDown():
-            print('yep')
-            self.cam.set_exposure_time(self.ui.exposure_input.value())
+            self.ui.exposure_input.setValue(self.cam.set_exposure_time(self.ui.exposure_input.value()))
 
     def updateGain(self):
         if not self.ui.rec_button.isDown():

@@ -94,8 +94,9 @@ class AravisCam(Camera):
         gi.require_version('Aravis', '0.8')
         from gi.repository import Aravis
 
+        self.Aravis = Aravis
         self.fps = 1
-        self.exposure_time = 10500
+        self.exposure_time = 40000
         self.iframe = 0
         self.setup_camera()
         self.camera.get_payload()
@@ -114,27 +115,40 @@ class AravisCam(Camera):
         self.setup()
 
     def setup_camera(self):
-        from gi.repository import Aravis
-        self.camera = Aravis.Camera.new(None)
+        self.camera = self.Aravis.Camera.new(None)
         self.dtype = numpy.uint16
-        self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_16)
+        self.camera.set_pixel_format(self.Aravis.PIXEL_FORMAT_MONO_16)
         self.camera.set_exposure_time_auto(False)
         self.camera.set_gain_auto(False)
-        self.camera.set_gain(2)
+        self.camera.set_gain(0)
         self.camera.set_exposure_time(self.exposure_time)
 
     def set_frame_rate(self, fps):
-        print('Setting frame rate')
+        max_exposure = 1000000 / fps * 0.9
+        if self.exposure_time > max_exposure:
+            print('Exposure higher than fps allows..')
+            self.set_exposure_time(max_exposure)
+            print('Setting exposure to %d' % max_exposure)
+        print('Setting frame rate at %d' % fps)
         self.fps = fps
+        self.camera.stop_acquisition()
         self.camera.set_frame_rate(fps)
+        self.camera.start_acquisition()
 
     def set_exposure_time(self, exposure_time):
-        print('Setting exposure')
-        self.exposure_time = exposure_time * 1000
-        self.camera.set_exposure_time(exposure_time * 1000)
+        max_exp = 1000000/self.fps * 0.9
+        if exposure_time > max_exp:
+            print('Exposure higher than fps allows..')
+            exposure_time = max_exp
+        print('Setting exposure to %d' % exposure_time)
+        self.exposure_time = exposure_time  # in microseconds
+        self.camera.stop_acquisition()
+        self.camera.set_exposure_time(exposure_time)
+        self.camera.start_acquisition()
+        return exposure_time
 
     def set_gain(self, gain):
-        print('Setting gain')
+        print('Setting gain at %d' % gain)
         self.camera.set_gain(gain)
 
     def start(self):
@@ -156,8 +170,7 @@ class AravisCam(Camera):
 
 class FakeAravisCam(AravisCam):
     def setup_camera(self):
-        from gi.repository import Aravis
-        Aravis.enable_interface("Fake")
-        self.camera = Aravis.Camera.new('Fake_1')
+        self.Aravis.enable_interface("Fake")
+        self.camera = self.Aravis.Camera.new('Fake_1')
         self.dtype = numpy.uint8
-        self.camera.set_pixel_format(Aravis.PIXEL_FORMAT_MONO_8)
+        self.camera.set_pixel_format(self.Aravis.PIXEL_FORMAT_MONO_8)
