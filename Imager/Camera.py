@@ -69,7 +69,7 @@ class Camera:
                 #print(cam_queue.qsize())
                 self.reported_framerate = 1/(item['timestamps'] - self.time)
                 self.time = item['timestamps']
-                self.process_queue.put(numpy.uint8(item['frames']/16000*255))
+                self.process_queue.put(numpy.uint8(item['frames']/65000*255))
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -106,7 +106,7 @@ class AravisCam(Camera):
         self.setup_camera()
         self.camera.get_payload()
         #self.camera.set_binning(2, 1)
-        self.camera.set_binning(1, 1)
+        #self.camera.set_binning(1, 1)
         self.camera.set_region(180, 0, shape[0], shape[1])
         xbin, ybin = self.camera.get_binning()
         print(shape)

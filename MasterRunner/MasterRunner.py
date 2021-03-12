@@ -75,10 +75,10 @@ class MasterRunner(QtWidgets.QWidget):
         self.rec_started = False
         source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
         if isinstance(self.rec_info, dict) and os.path.isfile(source_file) and self.ui.autocopy.checkState():
-            target_file = os.path.join(self.targetpath + self.rec_info['Program'], self.rec_info['filename'])
+            target_file = os.path.join(self.targetpath + self.rec_info['program'], self.rec_info['filename'])
             print('Copying file %s' % target_file)
             self.copier.append(source_file, target_file)
-            self.logger.log('Files', dict(self.rec_info, target_path=self.targetpath + self.rec_info['Program'],
+            self.logger.log('Files', dict(self.rec_info, target_path=self.targetpath + self.rec_info['program'],
                                           animal_id=self.animal_id, session=self.session))
 
     def stop(self):
