@@ -9,11 +9,9 @@ from ExpUtils.Communicator import *
 
 
 class Imager(QtWidgets.QWidget):
-    def __init__(self, dtype=numpy.int16, shape=(600, 600)):
+    def __init__(self):
         super(Imager, self).__init__()
         self.queue = Queue(maxsize=2)
-        self.dtype = dtype
-        self.shape = shape
         self.basename = ''
         self.basepath = str(Path.home()) + '/data/'
         self.filename = ''
@@ -23,8 +21,8 @@ class Imager(QtWidgets.QWidget):
         self.ui = uic.loadUi(path, self)
         self.setColorTable()
         self.fps = self.ui.fps_input.value()
-        self.cam = self.setCamera()                    # handle inputs
         self.shape = (self.ui.X_sz.value(), self.ui.Y_sz.value())
+        self.cam = self.setCamera()                    # handle inputs
         self.ui.stop_button.clicked.connect(self.stop_rec)
         self.ui.rec_button.clicked.connect(self.start_rec)
         self.ui.fps_input.valueChanged.connect(self.updateFPS)

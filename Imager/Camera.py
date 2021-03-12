@@ -138,7 +138,7 @@ class AravisCam(Camera):
         max_exposure = 1000000 / fps * 0.95
         if self.exposure_time > max_exposure:
             print('Exposure higher than fps allows..')
-            self.set_exposure_time(max_exposure)
+            self.set_exposure_time(max_exposure, direct=True)
             print('Setting exposure to %d' % max_exposure)
         print('Setting frame rate at %d' % fps)
         self.fps = fps
@@ -146,19 +146,19 @@ class AravisCam(Camera):
         self.camera.set_frame_rate(fps)
         print('Frame rate is at %d' % self.camera.get_frame_rate())
         self.camera.start_acquisition()
-        return fps
+        return self.camera.get_frame_rate()
 
-    def set_exposure_time(self, exposure_time):
+    def set_exposure_time(self, exposure_prc, direct=False):
         max_exp = 1000000/self.fps * 0.95
-        if exposure_time > max_exp:
-            print('Exposure higher than fps allows..')
-            exposure_time = max_exp
+        if direct:
+            exposure_time = exposure_prc
+        else:
+            exposure_time = max_exp*exposure_prc
         print('Setting exposure to %d' % exposure_time)
         self.exposure_time = exposure_time  # in microseconds
         self.camera.stop_acquisition()
         self.camera.set_exposure_time(exposure_time)
         self.camera.start_acquisition()
-        return exposure_time
 
     def set_gain(self, gain):
         print('Setting gain at %d' % gain)
