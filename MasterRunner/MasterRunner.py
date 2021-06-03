@@ -4,8 +4,11 @@ import os, numpy, sys, threading, time, signal
 from queue import Queue
 from pathlib import Path
 from subprocess import Popen
-sys.path.append(str(Path.home()) + '/github/PyMouse')
-sys.path.append(str(Path.home()) + '/github/Experiments')
+is_win = os.name == 'nt'
+os_path = str(Path.home())
+os_path += '/Documents/GitHub/' if is_win else '/github/'
+sys.path.append(os_path + 'PyMouse')
+sys.path.append(os_path + 'Experiments')
 from Experiments import *
 from Logger import *
 from ExpUtils.Communicator import *
@@ -22,7 +25,7 @@ class MasterRunner(QtWidgets.QWidget):
         self.animal_id = ''
         self.session = ''
         self.rec_info = ''
-        self.targetpath = '/mnt/lab/data/'
+        self.targetpath = 'X:/' if is_win else '/mnt/lab/data/'
         self.logger = Logger()
         self.copier = Copier()
         self.rec_started = False
@@ -49,11 +52,14 @@ class MasterRunner(QtWidgets.QWidget):
         self.conn.send(dict(basename=self.animal_id))
 
     def run_program(self):
-        Popen('sh Imager.sh', cwd="../", shell=True)
+        if is_win:
+            Popen('python3.8 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path+'Experiments/', shell=True)
+        else:
+            Popen('sh Imager.sh', cwd="../", shell=True)
 
     def runTask(self, task):
-        self.pymouse_proc = Popen('python3 ~/github/PyMouse/run.py %d' % task,
-                                  cwd=str(Path.home())+'/github/PyMouse/', shell=True)
+        self.pymouse_proc = Popen('python3 %sPyMouse/run.py %d' % (os_path,task),
+                                  cwd=os_path+'PyMouse/', shell=True)
 
     def start(self):
         self.ui.start_button.setDown(True)

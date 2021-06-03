@@ -3,7 +3,8 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5 import QtGui
 import os, numpy, sys
 from pathlib import Path
-sys.path.append(str(Path.home()) + '/github/Experiments')
+os_path = '/Documents/GitHub/' if os.name == 'nt' else '/github/'
+sys.path.append(str(Path.home()) + os_path + 'Experiments')
 from Camera import *
 from ExpUtils.Communicator import *
 
@@ -18,6 +19,7 @@ class Imager(QtWidgets.QWidget):
 
         # load ui
         path = os.path.join(os.path.dirname(__file__), "form.ui")
+        print(path)
         self.ui = uic.loadUi(path, self)
         self.setColorTable()
         self.fps = self.ui.fps_input.value()
@@ -67,6 +69,7 @@ class Imager(QtWidgets.QWidget):
 
     def updateExposure(self):
         if not self.ui.rec_button.isDown():
+            print(self.ui.exposure_input.value())
             self.ui.exposure_input.setValue(self.cam.set_exposure_time(self.ui.exposure_input.value()))
 
     def updateGain(self):
@@ -74,7 +77,8 @@ class Imager(QtWidgets.QWidget):
             self.cam.set_gain(self.ui.gain_input.value())
 
     def setCamera(self):
-        cam = AravisCam(shape=self.shape)
+        print('setting up camera')
+        cam = SpinCam(shape=self.shape)
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()
@@ -93,11 +97,10 @@ class Imager(QtWidgets.QWidget):
             self.ui.fps_indicator.display(int(self.cam.reported_framerate))
 
     def closeEvent(self, event):
-        print('stopping')
         self.cam.stop()
         self.cam.quit()
         self.conn.quit()
-        print('stopped')
+        print('Exiting...')
         event.accept()  # let the window close
 
     def setColorTable(self):

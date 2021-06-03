@@ -43,6 +43,7 @@ class Writer(object):
         self.datasets = manager.Dataset(datapath)
         self.thread_runner = Process(target=self.dequeue, args=(self.queue, self.datasets, self.thread_end))
         self.thread_runner.start()
+        self.writing = True
 
     def append(self, dataset, data):
         self.queue.put({'dataset': dataset, 'data': data})
@@ -66,4 +67,5 @@ class Writer(object):
             time.sleep(.1)
         self.thread_end.set()
         self.thread_runner.join()
+        self.writing = False
         print('Done recording')

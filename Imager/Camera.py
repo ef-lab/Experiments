@@ -1,8 +1,12 @@
 import time, numpy, datetime, threading
 import multiprocessing as mp
+
+import numpy as np
+
 from ExpUtils.Writer import Writer
 from queue import Queue
-
+import PySpin
+import sys
 
 class Camera:
     def __init__(self, shape=(600, 600)):
@@ -19,12 +23,13 @@ class Camera:
         self.setup()
         self.time = 0
         self.reported_framerate = 0
+        self.recording = False
 
     def setup(self):
         self.cam_queue = Queue()
         self.capture_end = threading.Event()
+        self.pause = threading.Event()
         self.capture_runner = threading.Thread(target=self.capture, args=(self.cam_queue, self.stream))
-        self.capture_runner.start()
         self.save = threading.Event()
         self.thread_end = threading.Event()
         self.thread_runner = threading.Thread(target=self.dequeue, args=(self.cam_queue,))  # max insertion rate of 10 events/sec
@@ -36,21 +41,27 @@ class Camera:
         self.thread_runner.start()
 
     def rec(self, basename=''):
-        now = datetime.datetime.now()
-        filename = '%s_%s.h5' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
-        print('Starting the recording of %s' % filename)
-        self.saver = Writer(filename)
-        self.saver.datasets.createDataset('frames', shape=(self.width, self.height, 1), dtype=self.dtype)
-        self.saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
-        self.iframe = 0
-        self.save.set()
-        return filename
+        if not self.recording:
+            now = datetime.datetime.now()
+            filename = '%s_%s.h5' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
+            print('Starting the recording of %s' % filename)
+            self.saver = Writer(filename)
+            self.saver.datasets.createDataset('frames', shape=(self.width, self.height, 1), dtype=self.dtype)
+            self.saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
+            self.iframe = 0
+            self.save.set()
+            self.recording = True
+            return filename
+        else:
+            return []
 
     def stop(self):
-        print('Wrote %d frames' % self.iframe)
-        self.save.clear()
-        if hasattr(self, 'saver'):
-            self.saver.exit()
+        if self.recording:
+            self.recording = False
+            print('Wrote %d frames' % self.iframe)
+            self.save.clear()
+            if hasattr(self, 'saver'):
+                self.saver.exit()
 
     def set_frame_rate(self, fps):
         self.namespace.fps = fps
@@ -83,12 +94,11 @@ class Camera:
             time.sleep(1/namespace.fps)
 
     def quit(self):
-        print('Stopping...')
         self.capture_end.set()
         #self.capture_runner.join()
         self.thread_end.set()
         #self.thread_runner.join()
-        if hasattr(self, 'saver'):
+        if hasattr(self, 'saver') and self.saver.writing:
             self.saver.exit()
 
 
@@ -190,3 +200,124 @@ class FakeAravisCam(AravisCam):
         self.camera = self.Aravis.Camera.new('Fake_1')
         self.dtype = numpy.uint8
         self.camera.set_pixel_format(self.Aravis.PIXEL_FORMAT_MONO_8)
+
+
+class SpinCam(Camera):
+    def __init__(self, shape=(600, 600)):
+        self.stream = []
+        self.fps = 20
+        self.time = 0
+        self.exposure_time = 4000
+        self.iframe = 0
+        self.reported_framerate = 0
+        self.x, self.y, self.width, self.height = 0,0,600,600
+
+        self.system = PySpin.System.GetInstance()
+        self.camera = self.system.GetCameras()[0]
+        self.setup_camera()
+        self.setup()
+        self.recording = False
+
+    def setup_camera(self):
+        self.camera.Init()
+        self.camera.UserSetSelector.SetValue(PySpin.UserSetSelector_Default)
+        self.camera.UserSetLoad()
+
+        nodemap = self.camera.GetNodeMap()
+        acquisition_mode_node = PySpin.CEnumerationPtr(nodemap.GetNode("AcquisitionMode"))
+        acquisition_mode_continuous_node = acquisition_mode_node.GetEntryByName("Continuous")
+        acquisition_mode_continuous = acquisition_mode_continuous_node.GetValue()
+        acquisition_mode_node.SetIntValue(acquisition_mode_continuous)
+
+        roi_node = PySpin.CIntegerPtr(nodemap.GetNode("Width"))
+        roi_node.SetValue(1200)
+        node_binning_vertical = PySpin.CIntegerPtr(nodemap.GetNode('BinningVertical'))
+        node_binning_vertical.SetValue(2)
+
+        self.acquisition_rate_node = self.camera.AcquisitionFrameRate
+        frame_rate_auto_node = PySpin.CEnumerationPtr(nodemap.GetNode("AcquisitionFrameRateAuto"))
+        frame_rate_auto_node.SetIntValue(frame_rate_auto_node.GetEntryByName("Off").GetValue())
+        enable_rate_mode = PySpin.CBooleanPtr(nodemap.GetNode("AcquisitionFrameRateEnabled"))
+        enable_rate_mode.SetValue(True)
+        self.acquisition_rate_node.SetValue(int(self.fps))
+        self.rate_max = self.acquisition_rate_node.GetMax()
+        self.rate_min = self.acquisition_rate_node.GetMin()
+
+        self.dtype = numpy.uint16
+        #self.camera.AdcBitDepth.SetValue(PySpin.AdcBitDepth_Bit12)
+        self.camera.PixelFormat.SetValue(PySpin.PixelFormat_Mono16)
+        self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+        self.camera.GainAuto.SetValue(PySpin.GainAuto_Off)
+        self.set_gain(0)
+        self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+        self.max_exposure = 1000000/self.fps*0.95
+        self.camera.ExposureTime.SetValue(self.max_exposure)
+
+    def set_frame_rate(self, fps):
+        if fps > self.rate_max:
+            print('target FPS exceeds max allowed %d ' % self.rate_max)
+            return
+        elif fps < self.rate_min:
+            print('target FPS exceeds min allowed %d ' % self.rate_min)
+            return
+
+        mx_exposure = 1000000 / fps * 0.95
+        if mx_exposure < self.exposure_time:
+            print('Exposure higher than fps allows..')
+            print('Setting exposure to %d' % self.max_exposure)
+            self.set_exposure_time(mx_exposure, direct=True)
+        self.pause.set()
+        self.camera.EndAcquisition()
+        self.fps = fps
+        self.acquisition_rate_node.SetValue(int(self.fps))
+        self.max_exposure = 1000000 / self.fps * 0.95
+        self.camera.BeginAcquisition()
+        self.pause.clear()
+        return self.acquisition_rate_node.GetValue()
+
+    def set_exposure_time(self, exposure_prc, direct=False):
+        if direct:
+            print('Direct control!')
+            exposure_time = np.minimum(exposure_prc, self.max_exposure)
+        else:
+            exposure_time = self.max_exposure*exposure_prc/100
+        print(exposure_prc,self.max_exposure)
+        print('Setting exposure to %d ms' % exposure_time)
+        self.exposure_time = exposure_time  # in microseconds
+        self.camera.ExposureTime.SetValue(exposure_time)
+        return exposure_prc
+
+    def set_gain(self, gain):
+        self.camera.Gain.SetValue(gain)
+        self.camera.GainAuto.SetValue(PySpin.GainAuto_Off)
+
+    def start(self):
+        print('Starting acquisition')
+        self.camera.BeginAcquisition()
+        self.capture_runner.start()
+        self.thread_runner.start()
+
+    def capture(self, q, stream):
+        while not self.capture_end.is_set():
+            if not self.pause.is_set():
+                try:
+                    image = self.camera.GetNextImage()
+                    if image:
+                        item = dict()
+                        dat = numpy.ndarray(buffer=image.GetNDArray(), dtype=self.dtype, shape=(self.width, self.height, 1))
+                        item['frames'] = dat
+                        item['timestamps'] = time.time()
+                        q.put(item)
+                except:
+                    pass
+
+    def quit(self):
+        self.thread_end.set()
+        self.camera.EndAcquisition()
+        self.camera.DeInit()
+        del self.camera
+        try:
+            self.system.ReleaseInstance()
+        except:
+            pass
+        super().quit()
