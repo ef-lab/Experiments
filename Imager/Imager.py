@@ -14,7 +14,7 @@ class Imager(QtWidgets.QWidget):
         super(Imager, self).__init__()
         self.queue = Queue(maxsize=2)
         self.basename = ''
-        self.basepath = str(Path.home()) + '/data/'
+        self.basepath = 'D:/Imager/' #str(Path.home()) + '/data/'
         self.filename = ''
 
         # load ui
