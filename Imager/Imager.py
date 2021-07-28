@@ -7,7 +7,7 @@ os_path = '/Documents/GitHub/' if os.name == 'nt' else '/github/'
 sys.path.append(str(Path.home()) + os_path + 'Experiments')
 from Camera import *
 from ExpUtils.Communicator import *
-import  cv2
+
 
 class Imager(QtWidgets.QWidget):
     version = '0.1'
