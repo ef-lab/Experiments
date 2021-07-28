@@ -7,23 +7,26 @@ os_path = '/Documents/GitHub/' if os.name == 'nt' else '/github/'
 sys.path.append(str(Path.home()) + os_path + 'Experiments')
 from Camera import *
 from ExpUtils.Communicator import *
-
+import  cv2
 
 class Imager(QtWidgets.QWidget):
+    version = '0.1'
+
     def __init__(self):
         super(Imager, self).__init__()
         self.queue = Queue(maxsize=2)
         self.basename = ''
         self.basepath = 'D:/Imager/' #str(Path.home()) + '/data/'
+        #self.basepath = str(Path.home()) + '/data/'
         self.filename = ''
 
         # load ui
         path = os.path.join(os.path.dirname(__file__), "form.ui")
-        print(path)
         self.ui = uic.loadUi(path, self)
         self.setColorTable()
         self.fps = self.ui.fps_input.value()
         self.shape = (self.ui.X_sz.value(), self.ui.Y_sz.value())
+        #self.shape=(640, 480)
         self.cam = self.setCamera()                    # handle inputs
         self.ui.stop_button.clicked.connect(self.stop_rec)
         self.ui.rec_button.clicked.connect(self.start_rec)
@@ -54,7 +57,7 @@ class Imager(QtWidgets.QWidget):
         self.ui.stop_button.setDown(False)
         self.filename = self.cam.rec(basename=self.basepath + self.basename)
         self.conn.send(dict(started=True, source_path=os.path.dirname(self.filename),
-                            filename=os.path.basename(self.filename), program='Imager'))
+                            filename=os.path.basename(self.filename), software='Imager', version=self.version))
 
     def stop_rec(self, *args):
         self.ui.rec_button.setDown(False)
@@ -79,6 +82,7 @@ class Imager(QtWidgets.QWidget):
     def setCamera(self):
         print('setting up camera')
         cam = SpinCam(shape=self.shape)
+        #cam = WebCam(shape=self.shape)
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()
@@ -87,7 +91,7 @@ class Imager(QtWidgets.QWidget):
     def updateplot(self):
         if not self.queue.empty():
             item = self.queue.get()
-            image = QImage(item, self.cam.width, self.cam.height, self.cam.width, QImage.Format_Indexed8)
+            image = QImage(item, self.cam.height, self.cam.width, QImage.Format_Indexed8)
             image.setColorTable(self.color_table)
             self.scene.clear()
             self.scene.addPixmap(QPixmap(image))

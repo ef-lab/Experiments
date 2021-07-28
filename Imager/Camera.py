@@ -5,7 +5,7 @@ import numpy as np
 
 from ExpUtils.Writer import Writer
 from queue import Queue
-import PySpin
+
 import sys
 
 class Camera:
@@ -40,13 +40,17 @@ class Camera:
     def start(self):
         self.thread_runner.start()
 
+    def set_exposure_time(self, exposure_prc, direct=False):
+        return exposure_prc
+
     def rec(self, basename=''):
         if not self.recording:
             now = datetime.datetime.now()
             filename = '%s_%s.h5' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
             print('Starting the recording of %s' % filename)
             self.saver = Writer(filename)
-            self.saver.datasets.createDataset('frames', shape=(self.width, self.height, 1), dtype=self.dtype)
+            #self.saver.datasets.createDataset('frames', shape=(self.width, self.height, 1), dtype=self.dtype)
+            self.saver.datasets.createDataset('frames', shape=(self.width, self.height), dtype=self.dtype)
             self.saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
             self.iframe = 0
             self.save.set()
@@ -80,7 +84,8 @@ class Camera:
                 #print(cam_queue.qsize())
                 self.reported_framerate = 1/(item['timestamps'] - self.time)
                 self.time = item['timestamps']
-                self.process_queue.put(numpy.uint8(item['frames']/65000*255))
+                #self.process_queue.put(numpy.uint8(item['frames']/65000*255))
+                self.process_queue.put(numpy.uint8(item['frames']))
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -204,6 +209,7 @@ class FakeAravisCam(AravisCam):
 
 class SpinCam(Camera):
     def __init__(self, shape=(600, 600)):
+        import PySpin
         self.stream = []
         self.fps = 20
         self.time = 0
@@ -320,4 +326,60 @@ class SpinCam(Camera):
             self.system.ReleaseInstance()
         except:
             pass
+        super().quit()
+
+
+class WebCam(Camera):
+
+    def __init__(self, shape=(400, 400)):
+        global cv2
+        import cv2
+        self.stream = []
+        self.fps = 20
+        self.time = 0
+        self.exposure_time = 4000
+        self.iframe = 0
+        self.reported_framerate = 0
+        self.dtype = numpy.uint8
+        self.camera = cv2.VideoCapture(0)
+        self.change_res(shape[1], shape[0])
+        check, image = self.get_frame()
+        shape = np.shape(image)
+        self.width, self.height = shape[0], shape[1]
+        self.recording = False
+        self.setup()
+
+    def change_res(self, width, height):
+        self.camera.set(3, width)
+        self.camera.set(4, height)
+        check, image = self.get_frame()
+        if check:
+            shape = np.shape(image)
+            self.width, self.height = shape[0], shape[1]
+
+    def start(self):
+        print('Starting acquisition')
+        self.capture_runner.start()
+        self.thread_runner.start()
+
+    def get_frame(self):
+        check, image = self.camera.read()
+        if check:
+            image = np.squeeze(np.mean(image, axis=2))
+        return check, image
+
+    def capture(self, q, stream):
+        while not self.capture_end.is_set():
+            if not self.pause.is_set():
+                check, image = self.get_frame()
+                if check:
+                    item = dict()
+                    item['frames'] = image
+                    item['timestamps'] = time.time()
+                    q.put(item)
+
+    def quit(self):
+        self.camera.release()
+        cv2.destroyAllWindows
+        self.thread_end.set()
         super().quit()

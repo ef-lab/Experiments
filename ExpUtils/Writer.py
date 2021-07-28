@@ -9,6 +9,7 @@ class Dataset(object):
         self.datapath = datapath
 
     def createDataset(self, dataset, shape, dtype=numpy.int16, compression="gzip", chunk_len=1):
+        print('Creating dataset of  size ', shape)
         self.datasets[dataset] = self.h5Dataset(self.datapath, dataset, shape, dtype, compression, chunk_len)
 
     def get(self, dataset):
