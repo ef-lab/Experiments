@@ -29,7 +29,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="Settings">
     <attribute name="title">
@@ -309,7 +309,7 @@
       <string>Timestamp</string>
      </property>
     </widget>
-    <widget class="QWidget" name="">
+    <widget class="QWidget" name="layoutWidget">
      <property name="geometry">
       <rect>
        <x>10</x>
@@ -396,7 +396,7 @@
       </item>
      </layout>
     </widget>
-    <widget class="QWidget" name="">
+    <widget class="QWidget" name="layoutWidget">
      <property name="geometry">
       <rect>
        <x>10</x>
@@ -565,7 +565,7 @@
       <string>Abort</string>
      </property>
     </widget>
-    <widget class="QWidget" name="">
+    <widget class="QWidget" name="layoutWidget">
      <property name="geometry">
       <rect>
        <x>20</x>
@@ -578,7 +578,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="aim_label">
         <property name="text">
-         <string>Aim</string>
+         <string>Recording Aim</string>
         </property>
        </widget>
       </item>
@@ -590,7 +590,13 @@
        </widget>
       </item>
       <item row="1" column="0">
-       <widget class="QComboBox" name="aim"/>
+       <widget class="QComboBox" name="aim">
+        <item>
+         <property name="text">
+          <string> </string>
+         </property>
+        </item>
+       </widget>
       </item>
       <item row="1" column="1">
        <widget class="QComboBox" name="anesthesia">
@@ -603,7 +609,7 @@
       </item>
      </layout>
     </widget>
-    <widget class="QWidget" name="">
+    <widget class="QWidget" name="layoutWidget">
      <property name="geometry">
       <rect>
        <x>22</x>
@@ -722,7 +728,7 @@
   <widget class="QPushButton" name="running_indicator">
    <property name="geometry">
     <rect>
-     <x>170</x>
+     <x>10</x>
      <y>260</y>
      <width>71</width>
      <height>31</height>
@@ -778,7 +784,7 @@
   <widget class="QPushButton" name="recording_indicator">
    <property name="geometry">
     <rect>
-     <x>10</x>
+     <x>170</x>
      <y>260</y>
      <width>71</width>
      <height>31</height>

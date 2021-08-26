@@ -10,15 +10,13 @@ sys.path.append(os_path + 'lab/python')
 sys.path.append(os_path + 'Experiments')
 from ExpUtils.Communicator import *
 from ExpUtils.Copier import *
+from core.Logger import *
+import common as common
 
 
 class Runner(QtWidgets.QWidget):
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
-        from core.Logger import Logger, dj
-        import common
-
-        self.logger = Logger()
-        self.experiment = dj.create_virtual_module('experiment', 'lab_experiments', create_tables=True)
+        self.logger = Logger(extra_schema={'recording':'lab_recordings'})
         self.common = common
         super(Runner, self).__init__()
         self.queue = Queue()
@@ -44,11 +42,11 @@ class Runner(QtWidgets.QWidget):
         self.ui.insert_button.clicked.connect(self.insert_note)
         self.ui.software_run.clicked.connect(self.run_program)
         self.ui.user.addItems(self.common.User().fetch('user_name'))
-        self.ui.anesthesia.addItems(self.experiment.AnesthesiaType().fetch('anesthesia'))
-        self.ui.surgery_type.addItems(self.experiment.SurgeryType().fetch('surgery'))
-        self.ui.anesthesia_type.addItems(self.experiment.AnesthesiaType().fetch('anesthesia'))
-        self.ui.aim.addItems(self.experiment.Aim().fetch('rec_aim'))
-        self.ui.software.addItems(self.experiment.Software().fetch('software'))
+        self.ui.anesthesia.addItems(self.logger.get(table='AnesthesiaType', fields=['anesthesia'], schema='recording'))
+        self.ui.surgery_type.addItems(self.logger.get(table='SurgeryType', fields=['surgery'], schema='mice'))
+        self.ui.anesthesia_type.addItems(self.logger.get(table='AnesthesiaType', fields=['anesthesia'], schema='recording'))
+        self.ui.aim.addItems(self.logger.get(table='Aim', fields=['rec_aim'], schema='recording'))
+        self.ui.software.addItems(self.logger.get(table='Software', fields=['software'], schema='recording'))
         self.recorder = Communicator(connect_callback=self.ui.connect_indicator.setDown)
         self.ui.animal_input.textChanged.connect(self.update_animal_id)
         self.recorder.register_callback(dict(started=self.set_rec_info))
@@ -92,7 +90,7 @@ class Runner(QtWidgets.QWidget):
             time.sleep(.1)
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
-            while len(self.experiment.Session & self.session_key) == 0:
+            while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
                 time.sleep(.2)
             self.ui.stimulus_indicator.setDown(True)
         else:
@@ -100,15 +98,15 @@ class Runner(QtWidgets.QWidget):
         self.ui.session_id.setText(str(self.session_key['session']))
         if self.rec_started:
             self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
-            recs = (self.experiment.Recording & self.session_key).fetch('rec_idx')
+            recs = self.logger.get(table='Session', fields=['rec_idx'], key=self.session_key, session='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
             tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
                      'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
-            self.logger.log('Recording', data=tuple)
+            self.logger.log('Recording', data=tuple, schema='recording')
 
         if self.ui.anesthesia.currentText() != 'none':
-            self.logger.log('Session.Anesthetized', data={**self.session_key,
-                                                          'anesthesia': self.ui.anesthesia.currentText()})
+            self.logger.log('Recording.Anesthetized', schema='recording',
+                            data={**self.session_key, 'anesthesia': self.ui.anesthesia.currentText()})
 
     def stop_rec(self, *args):
         self.rec_started = False
@@ -132,7 +130,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.running_indicator.setDown(False)
 
     def abort(self):
-        self.logger.log('Session.Excluded', {**self.session_key, 'reason':"aborted"})
+        self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
         self.stop()
 
     def insert_note(self):
@@ -145,21 +143,21 @@ class Runner(QtWidgets.QWidget):
 
         if self.ui.surgery_type.currentText() != 'none':
             dt = self.ui.surgery_time.dateTime()
-            self.logger.log('Surgery', dict(animal_id=int(self.ui.animal_input.text()),
-                                            surgery=self.ui.surgery_type.currentText(),
-                                            user_name=self.ui.user.currentText(),
-                                            timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
-                                            note=self.ui.surgery_notes.toPlainText()))
+            self.logger.log('Surgery', data=dict(animal_id=int(self.ui.animal_input.text()),
+                                                 surgery=self.ui.surgery_type.currentText(),
+                                                 user_name=self.ui.user.currentText(),
+                                                 timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
+                                                 note=self.ui.surgery_notes.toPlainText()), schema='mice')
             self.ui.surgery_notes.setPlainText('')
 
     def insert_anesthesia(self):
         if self.ui.anesthesia_type.currentText() != 'none':
             dt = self.ui.anesthesia_time.dateTime()
-            self.logger.log('Anesthesia', dict(animal_id=int(self.ui.animal_input.text()),
-                                               anesthesia=self.ui.anesthesia_type.currentText(),
-                                               user_name=self.ui.user.currentText(),
-                                               timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
-                                               dose=self.ui.anesthesia_dose.text()))
+            self.logger.log('Anesthesia', data=dict(animal_id=int(self.ui.animal_input.text()),
+                                                    anesthesia=self.ui.anesthesia_type.currentText(),
+                                                    user_name=self.ui.user.currentText(),
+                                                    timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
+                                                    dose=self.ui.anesthesia_dose.text()), schema='recording')
 
     def copying_callback(self):
         if self.copier.copying.is_set():
