@@ -16,7 +16,9 @@ import common as common
 
 class Runner(QtWidgets.QWidget):
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
-        self.logger = Logger(extra_schema={'recording':'lab_recordings'})
+        #self.logger = Logger(extra_schema={'recording':'lab_recordings'})
+        self.logger = Logger()
+        self.logger.setup_schema({'recording': 'lab_recordings'})
         self.common = common
         super(Runner, self).__init__()
         self.queue = Queue()
@@ -47,6 +49,8 @@ class Runner(QtWidgets.QWidget):
         self.ui.anesthesia_type.addItems(self.logger.get(table='AnesthesiaType', fields=['anesthesia'], schema='recording'))
         self.ui.aim.addItems(self.logger.get(table='Aim', fields=['rec_aim'], schema='recording'))
         self.ui.software.addItems(self.logger.get(table='Software', fields=['software'], schema='recording'))
+        self.ui.setup.addItems(self.logger.get(table='Control', fields=['setup'], schema='experiment',
+                                               key={'status': 'ready'}))
         self.recorder = Communicator(connect_callback=self.ui.connect_indicator.setDown)
         self.ui.animal_input.textChanged.connect(self.update_animal_id)
         self.recorder.register_callback(dict(started=self.set_rec_info))
@@ -65,7 +69,7 @@ class Runner(QtWidgets.QWidget):
 
     def update_animal_id(self):
         self.animal_id = self.ui.animal_input.text()
-        self.logger.update_setup_info(dict(animal_id=self.animal_id))
+        self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
         self.recorder.send(dict(basename=self.animal_id))
         self.ui.session_id.setText(str(self.logger.get_last_session()))
 
@@ -77,8 +81,14 @@ class Runner(QtWidgets.QWidget):
                 Popen('sh Imager.sh', cwd='../', shell=True)
 
     def run_task(self, task):
-        self.pymouse_proc = Popen('python3 %sPyMouse/run.py %d' % (os_path, task),
-                                  cwd=os_path+'PyMouse/', shell=True)
+        stim_setup = self.ui.setup.currentText()
+        if stim_setup == 'local':
+            self.pymouse_proc = Popen('python3 %sPyMouse/run.py %d' % (os_path, task),
+                                      cwd=os_path+'PyMouse/', shell=True)
+        else:
+            self.logger.setup = stim_setup
+            self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
+                                          dict(setup=stim_setup))
 
     def start(self):
         self.ui.running_indicator.setDown(True)
@@ -126,10 +136,12 @@ class Runner(QtWidgets.QWidget):
             self.copier.append(self.source_file, self.target_file)
 
     def stop(self):
-        self.logger.update_setup_info(dict(status='exit'))
+        self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
         self.ui.start_button.setText("Stopping")
         if self.ui.task_check.checkState():
-            while self.pymouse_proc.poll() is None:
+            #while self.pymouse_proc.poll() is None:
+            while self.logger.get(table='Control', fields=['status'], schema='experiment',
+                                  key={'setup': self.logger.setup}) == 'running':
                 time.sleep(.1)
             self.ui.stimulus_indicator.setDown(False)
         self.recorder.send('stop')
