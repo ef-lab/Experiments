@@ -98,8 +98,18 @@ class Runner(QtWidgets.QWidget):
         self.ui.session_id.setText(str(self.session_key['session']))
         if self.rec_started:
             self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
-            recs = self.logger.get(table='Session', fields=['rec_idx'], key=self.session_key, session='recording')
+            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+            tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
+                     'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
+            self.logger.log('Recording', data=tuple, schema='recording')
+
+        if self.ui.software.currentText() == 'OpenEphys':
+            self.target_file = ''
+            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
+            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+            self.rec_info = dict(started=True, source_path='',
+                            filename='', software='OpenEphys', version='0.5.4')
             tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
                      'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
             self.logger.log('Recording', data=tuple, schema='recording')

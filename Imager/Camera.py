@@ -5,6 +5,7 @@ import numpy as np
 
 from ExpUtils.Writer import Writer
 from queue import Queue
+import PySpin
 
 import sys
 
@@ -84,8 +85,8 @@ class Camera:
                 #print(cam_queue.qsize())
                 self.reported_framerate = 1/(item['timestamps'] - self.time)
                 self.time = item['timestamps']
-                #self.process_queue.put(numpy.uint8(item['frames']/65000*255))
-                self.process_queue.put(numpy.uint8(item['frames']))
+                self.process_queue.put(numpy.uint8(item['frames']/65000*255))
+                #self.process_queue.put(numpy.uint8(item['frames']))
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -209,7 +210,7 @@ class FakeAravisCam(AravisCam):
 
 class SpinCam(Camera):
     def __init__(self, shape=(600, 600)):
-        import PySpin
+        #import PySpin
         self.stream = []
         self.fps = 20
         self.time = 0
@@ -310,7 +311,8 @@ class SpinCam(Camera):
                     image = self.camera.GetNextImage()
                     if image:
                         item = dict()
-                        dat = numpy.ndarray(buffer=image.GetNDArray(), dtype=self.dtype, shape=(self.width, self.height, 1))
+                        im = image.GetNDArray()
+                        dat = numpy.ndarray(buffer=im, dtype=self.dtype, shape=(1, self.width, self.height))
                         item['frames'] = dat
                         item['timestamps'] = time.time()
                         q.put(item)
