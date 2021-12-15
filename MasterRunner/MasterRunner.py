@@ -15,6 +15,8 @@ import common as common
 
 
 class Runner(QtWidgets.QWidget):
+    animal_id, session, setup_name, rec_info, rec_started, exit = '', '', '', '', False, False
+
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
         #self.logger = Logger(extra_schema={'recording':'lab_recordings'})
         self.logger = Logger()
@@ -25,17 +27,11 @@ class Runner(QtWidgets.QWidget):
         self.dtype = dtype
         self.shape = shape
         self.colormap = 'gray'
-        self.animal_id = ''
-        self.session = ''
-        self.rec_info = ''
         self.targetpath = self.common.Paths().getLocal('data')#'X:/' if is_win else '/mnt/lab/data/'
 
         self.copier = Copier()
         self.copier.run()
-        self.rec_started = False
-        self.exit = False
 
-        # load ui
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
         self.ui.start_button.clicked.connect(self.start)
@@ -59,6 +55,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.anesthesia_button.clicked.connect(self.insert_anesthesia)
         self.ui.anesthesia_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.surgery_time.setDateTime(QtCore.QDateTime.currentDateTime())
+        self.ui.setup.currentIndexChanged.connect(self.update_setup)
 
     def set_rec_info(self, key):
         self.rec_started = True
@@ -73,6 +70,10 @@ class Runner(QtWidgets.QWidget):
         self.recorder.send(dict(basename=self.animal_id))
         self.ui.session_id.setText(str(self.logger.get_last_session()))
 
+    def update_setup(self):
+        self.setup_name = self.ui.setup.currentText()
+        self.logger.setup = self.setup_name
+
     def run_program(self):
         if self.ui.software.currentText() == 'Imager':
             if is_win:
@@ -81,14 +82,12 @@ class Runner(QtWidgets.QWidget):
                 Popen('sh Imager.sh', cwd='../', shell=True)
 
     def run_task(self, task):
-        stim_setup = self.ui.setup.currentText()
-        if stim_setup == 'local':
+        if self.setup_name == 'local':
             self.pymouse_proc = Popen('python3 %sPyMouse/run.py %d' % (os_path, task),
                                       cwd=os_path+'PyMouse/', shell=True)
         else:
-            self.logger.setup = stim_setup
             self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
-                                          dict(setup=stim_setup))
+                                          dict(setup=self.setup_name))
 
     def start(self):
         self.ui.running_indicator.setDown(True)
@@ -106,6 +105,7 @@ class Runner(QtWidgets.QWidget):
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
         self.ui.session_id.setText(str(self.session_key['session']))
+        rec_program = self.ui.software.currentText()
         if self.rec_started:
             self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
@@ -113,13 +113,13 @@ class Runner(QtWidgets.QWidget):
             tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
                      'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
             self.logger.log('Recording', data=tuple, schema='recording')
-
-        if self.ui.software.currentText() == 'OpenEphys':
+        elif rec_program in ['OpenEphys', 'Miniscope']:
             self.target_file = ''
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-            self.rec_info = dict(started=True, source_path='',
-                            filename='', software='OpenEphys', version='0.5.4')
+            version = self.logger.get(table='Software', fields=['version'],
+                                      key=dict(software=rec_program), schema='recording')
+            self.rec_info = dict(started=True, source_path='', filename='', software=rec_program, version=version)
             tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
                      'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
             self.logger.log('Recording', data=tuple, schema='recording')
