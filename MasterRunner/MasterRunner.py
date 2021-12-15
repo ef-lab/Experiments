@@ -1,5 +1,5 @@
 from PyQt5 import uic, QtWidgets, QtCore
-import os, numpy, sys, threading, time, signal
+import os, numpy, sys, threading, time, signal, datetime
 from pathlib import Path
 from subprocess import Popen
 is_win = os.name == 'nt'
@@ -28,7 +28,6 @@ class Runner(QtWidgets.QWidget):
         self.shape = shape
         self.colormap = 'gray'
         self.targetpath = self.common.Paths().getLocal('data')#'X:/' if is_win else '/mnt/lab/data/'
-
         self.copier = Copier()
         self.copier.run()
 
@@ -90,6 +89,8 @@ class Runner(QtWidgets.QWidget):
                                           dict(setup=self.setup_name))
 
     def start(self):
+        self.update_setup()
+        self.update_animal_id()
         self.ui.running_indicator.setDown(True)
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Running")
@@ -106,14 +107,7 @@ class Runner(QtWidgets.QWidget):
             self.logger.log_session(dict(user=self.ui.user.currentText()))
         self.ui.session_id.setText(str(self.session_key['session']))
         rec_program = self.ui.software.currentText()
-        if self.rec_started:
-            self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
-            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-            tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
-                     'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
-            self.logger.log('Recording', data=tuple, schema='recording')
-        elif rec_program in ['OpenEphys', 'Miniscope']:
+        if rec_program in ['OpenEphys', 'Miniscope']:
             self.target_file = ''
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
@@ -123,6 +117,18 @@ class Runner(QtWidgets.QWidget):
             tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
                      'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
             self.logger.log('Recording', data=tuple, schema='recording')
+            #if rec_program == 'Miniscope':
+            #    times = os.listdir('X:/Miniscope/'+str(datetime.datetime.now().strftime("%Y_%m_%d")))
+            #    datetime.datetime.strptime('13_04_16', '%H_%M_%S')
+        if self.rec_started:
+            self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
+            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
+            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+            tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
+                     'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
+            self.logger.log('Recording', data=tuple, schema='recording')
+
+
 
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
@@ -162,7 +168,6 @@ class Runner(QtWidgets.QWidget):
             self.ui.note_field.setPlainText('')
 
     def insert_surgery(self):
-
         if self.ui.surgery_type.currentText() != 'none':
             dt = self.ui.surgery_time.dateTime()
             self.logger.log('Surgery', data=dict(animal_id=int(self.ui.animal_input.text()),
