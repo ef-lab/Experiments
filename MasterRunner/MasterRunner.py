@@ -1,5 +1,6 @@
 from PyQt5 import uic, QtWidgets, QtCore
-import os, numpy, sys, threading, time, signal, datetime
+import os, numpy, sys, threading, time, signal, glob
+from datetime import datetime, timedelta
 from pathlib import Path
 from subprocess import Popen
 is_win = os.name == 'nt'
@@ -71,7 +72,8 @@ class Runner(QtWidgets.QWidget):
 
     def update_setup(self):
         self.setup_name = self.ui.setup.currentText()
-        self.logger.setup = self.setup_name
+        if self.setup_name != 'local':
+            self.logger.setup = self.setup_name
 
     def run_program(self):
         if self.ui.software.currentText() == 'Imager':
@@ -108,6 +110,9 @@ class Runner(QtWidgets.QWidget):
         self.ui.session_id.setText(str(self.session_key['session']))
         rec_program = self.ui.software.currentText()
         if rec_program in ['OpenEphys', 'Miniscope']:
+            sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)
+            sess_tmst = datetime.strptime(sess_tmst, '%Y-%m-%d %H:%M:%S')
+
             self.target_file = ''
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
@@ -117,10 +122,16 @@ class Runner(QtWidgets.QWidget):
             tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
                      'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
             self.logger.log('Recording', data=tuple, schema='recording')
-            #if rec_program == 'Miniscope':
-            #    times = os.listdir('X:/Miniscope/'+str(datetime.datetime.now().strftime("%Y_%m_%d")))
-            #    datetime.datetime.strptime('13_04_16', '%H_%M_%S')
-        if self.rec_started:
+            date = datetime.strftime(sess_tmst, '%Y-%m-%d')
+            if rec_program == 'Miniscope':
+                path = 'D:/Miniscope/' + date
+                source_path = [folder for folder in glob.glob(path + '/*')
+                 if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H_%M_%S') >= sess_tmst]
+            elif rec_program == 'OpenEphys':
+                source_path = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+                 if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
+
+        if self.rec_started:# or rec_program in ['OpenEphys', 'Miniscope']:
             self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
