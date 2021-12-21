@@ -24,7 +24,7 @@ class Copier:
                 data = q.get()
                 os.makedirs(os.path.dirname(data['target']), exist_ok=True)
                 if os.path.isdir(data['source']):
-                    copytree(data['source'], data['target'])
+                    copytree(data['source'], data['target'], dirs_exist_ok=True)
                 else:
                     copyfile(data['source'], data['target'])
                 print('Done copying')

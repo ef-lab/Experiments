@@ -60,9 +60,8 @@ class Runner(QtWidgets.QWidget):
     def set_rec_info(self, key):
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
         rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-        sess_tmst = datetime.strptime(self.logger.get(table='Session', fields=['session_tmst'],
-                                                      key=self.session_key), '%Y-%m-%d %H:%M:%S')
-        target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
+        sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
+        target_path = os.path.join(self.targetpath, key['software'], str(self.session_key['animal_id']) +
                                    '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
                                    datetime.strftime(sess_tmst, '%Y-%m-%d_%H-%M-%S'))
         self.rec_info = {**self.session_key, **key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
@@ -129,7 +128,6 @@ class Runner(QtWidgets.QWidget):
         # set recording info
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
             self.set_rec_info(dict(started=True, filename='', software=self.ui.software.currentText()))
-
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
                             data={**self.session_key, 'anesthesia': self.ui.anesthesia.currentText()})
@@ -146,23 +144,31 @@ class Runner(QtWidgets.QWidget):
 
     def stop(self):
         self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
-        self.ui.start_button.setText("Stopping")
+        self.ui.stop_button.setText("Stopping")
         if self.ui.task_check.checkState():
-            #while self.pymouse_proc.poll() is None:
-            while self.logger.get(table='Control', fields=['status'], schema='experiment',
-                                  key={'setup': self.logger.setup}) == 'running':
-                time.sleep(.1)
+            if self.setup_name == 'local':
+                while self.pymouse_proc.poll() is None: time.sleep(.1)
+            else:
+                while self.logger.get(table='Control', fields=['status'], schema='experiment',
+                                      key={'setup': self.logger.setup}) not in {'exit','ready'}:
+                    time.sleep(.1)
             self.ui.stimulus_indicator.setDown(False)
-        self.recorder.send('stop')
-        while self.rec_started and self.ui.connect_indicator.isDown:
-            time.sleep(.1)
+        if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
+            self.stop_rec()
+        else:
+            self.recorder.send('stop')
+            while self.rec_started and self.ui.connect_indicator.isDown:
+                time.sleep(.1)
         self.ui.start_button.setDown(False)
         self.ui.start_button.setText("Start")
+        self.ui.stop_button.setText("Stop")
         self.ui.running_indicator.setDown(False)
 
     def abort(self):
         self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
+        self.ui.abort_button.setText("Aborting")
         self.stop()
+        self.ui.abort_button.setText("Abort")
 
     def insert_note(self):
         txt = self.ui.note_field.toPlainText()
