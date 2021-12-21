@@ -58,11 +58,31 @@ class Runner(QtWidgets.QWidget):
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
 
     def set_rec_info(self, key):
-        self.rec_started = True
-        self.ui.recording_indicator.setDown(True)
-        self.rec_info = key
-        self.ui.file.setText(os.path.basename(self.rec_info['filename']))
-        self.source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
+        recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
+        rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+        sess_tmst = datetime.strptime(self.logger.get(table='Session', fields=['session_tmst'],
+                                                      key=self.session_key), '%Y-%m-%d %H:%M:%S')
+        target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
+                                   '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
+                                   datetime.strftime(sess_tmst, '%Y-%m-%d_%H-%M-%S'))
+        self.rec_info = {**self.session_key, **key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
+                         'target_path': target_path}
+        if self.rec_info['software'] == 'Miniscope':
+            date = datetime.strftime(sess_tmst, '%Y_%m_%d')
+            self.rec_info['version'] = '1.10'
+            self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
+             if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
+        elif self.rec_info['software'] == 'OpenEphys':
+            date = datetime.strftime(sess_tmst, '%Y-%m-%d')
+            self.rec_info['version'] = '0.5.4'
+            self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
+        if self.rec_info['source_path']:
+            self.rec_info['source_path'] = self.rec_info['source_path'][0]
+            self.logger.log('Recording', data=self.rec_info, schema='recording')
+            self.ui.file.setText(os.path.basename(self.rec_info['filename']))
+            self.rec_started = True
+            self.ui.recording_indicator.setDown(True)
 
     def update_animal_id(self):
         self.animal_id = self.ui.animal_input.text()
@@ -98,48 +118,17 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setText("Running")
         self.recorder.send('start')
         self.session_key = dict(animal_id=self.animal_id, session=self.logger.get_last_session() + 1)
-        while self.ui.connect_indicator.isDown() and not self.rec_started:
-            time.sleep(.1)
+        while self.ui.connect_indicator.isDown() and not self.rec_started: time.sleep(.1)
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
-            while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
-                time.sleep(.2)
+            while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0: time.sleep(.2)
             self.ui.stimulus_indicator.setDown(True)
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
         self.ui.session_id.setText(str(self.session_key['session']))
-        rec_program = self.ui.software.currentText()
-        if rec_program in ['OpenEphys', 'Miniscope']:
-            sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)
-            sess_tmst = datetime.strptime(sess_tmst, '%Y-%m-%d %H:%M:%S')
-
-            self.target_file = ''
-            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-            version = self.logger.get(table='Software', fields=['version'],
-                                      key=dict(software=rec_program), schema='recording')
-            self.rec_info = dict(started=True, source_path='', filename='', software=rec_program, version=version)
-            tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
-                     'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
-            self.logger.log('Recording', data=tuple, schema='recording')
-            date = datetime.strftime(sess_tmst, '%Y-%m-%d')
-            if rec_program == 'Miniscope':
-                path = 'D:/Miniscope/' + date
-                source_path = [folder for folder in glob.glob(path + '/*')
-                 if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H_%M_%S') >= sess_tmst]
-            elif rec_program == 'OpenEphys':
-                source_path = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-                 if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
-
-        if self.rec_started:# or rec_program in ['OpenEphys', 'Miniscope']:
-            self.target_file = os.path.join(self.targetpath + self.rec_info['software'], self.rec_info['filename'])
-            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-            tuple = {**self.session_key, **self.rec_info, 'target_path': self.targetpath + self.rec_info['software'],
-                     'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText()}
-            self.logger.log('Recording', data=tuple, schema='recording')
-
-
+        # set recording info
+        if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
+            self.set_rec_info(dict(started=True, filename='', software=self.ui.software.currentText()))
 
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
@@ -148,9 +137,12 @@ class Runner(QtWidgets.QWidget):
     def stop_rec(self, *args):
         self.rec_started = False
         self.ui.recording_indicator.setDown(False)
-        if isinstance(self.rec_info, dict) and os.path.isfile(self.source_file) and self.ui.autocopy.checkState():
-            print('Copying %s to %s' % (self.source_file, self.target_file))
-            self.copier.append(self.source_file, self.target_file)
+        if isinstance(self.rec_info, dict) and self.ui.autocopy.checkState():
+            source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
+            if os.path.isfile(source_file) or os.path.isdir(source_file):
+                target_file = os.path.join(self.rec_info['target_path'], self.rec_info['filename'])
+                print('Copying %s to %s' % (source_file, target_file))
+                self.copier.append(source_file, target_file)
 
     def stop(self):
         self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))

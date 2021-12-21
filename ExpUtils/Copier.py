@@ -1,6 +1,6 @@
-import time
+import time, os
 from multiprocessing import Process, Queue, Event
-from shutil import copyfile
+from shutil import copyfile, copytree
 
 
 class Copier:
@@ -22,7 +22,11 @@ class Copier:
                 if not copying.is_set():
                     copying.set()
                 data = q.get()
-                copyfile(data['source'], data['target'])
+                os.makedirs(os.path.dirname(data['target']), exist_ok=True)
+                if os.path.isdir(data['source']):
+                    copytree(data['source'], data['target'])
+                else:
+                    copyfile(data['source'], data['target'])
                 print('Done copying')
             else:
                 if copying.is_set():
