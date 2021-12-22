@@ -12,7 +12,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>335</width>
+    <width>397</width>
     <height>272</height>
    </rect>
   </property>
@@ -34,7 +34,7 @@
     </font>
    </property>
    <property name="currentIndex">
-    <number>3</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="Settings">
     <attribute name="title">
@@ -204,7 +204,7 @@
         <property name="font">
          <font>
           <family>Arial</family>
-          <pointsize>11</pointsize>
+          <pointsize>13</pointsize>
          </font>
         </property>
         <property name="styleSheet">
@@ -668,7 +668,7 @@
       <rect>
        <x>10</x>
        <y>130</y>
-       <width>320</width>
+       <width>311</width>
        <height>71</height>
       </rect>
      </property>
@@ -859,7 +859,7 @@
    <property name="font">
     <font>
      <family>Arial</family>
-     <pointsize>11</pointsize>
+     <pointsize>13</pointsize>
     </font>
    </property>
    <property name="styleSheet">
@@ -945,7 +945,7 @@
    <property name="font">
     <font>
      <family>Arial</family>
-     <pointsize>11</pointsize>
+     <pointsize>13</pointsize>
      <weight>50</weight>
      <bold>false</bold>
     </font>
