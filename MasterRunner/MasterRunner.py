@@ -19,7 +19,6 @@ class Runner(QtWidgets.QWidget):
     animal_id, session, setup_name, rec_info, rec_started, exit = '', '', '', '', False, False
 
     def __init__(self, shape=(600, 600), dtype=numpy.int16):
-        #self.logger = Logger(extra_schema={'recording':'lab_recordings'})
         self.logger = Logger()
         self.logger.setup_schema({'recording': 'lab_recordings'})
         self.common = common
@@ -54,11 +53,16 @@ class Runner(QtWidgets.QWidget):
         self.ui.anesthesia_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.surgery_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
+        self.ui.stim_refresh.clicked.connect(self.update_setups)
         self.update_setups()
+        self.report('Ready')
 
     def update_setups(self):
-        self.ui.setup.addItems(self.logger.get(table='Control', fields=['setup'], schema='experiment',
-                                               key={'status': 'ready'}))
+        self.ui.setup.currentIndexChanged.disconnect()
+        self.ui.setup.clear()
+        self.ui.setup.addItems(['local'] + list(self.logger.get(table='Control', fields=['setup'], schema='experiment',
+                                               key={'status': 'ready'})))
+        self.ui.setup.currentIndexChanged.connect(self.update_setup)
 
     def set_rec_info(self, key):
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
@@ -72,23 +76,25 @@ class Runner(QtWidgets.QWidget):
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
-            while not  self.rec_info['source_path']:
+            while not self.rec_info['source_path']:  # waiting for recording to start
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
                  if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
-                time.sleep(.5)
+                if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
         elif self.rec_info['software'] == 'OpenEphys':
             date = datetime.strftime(sess_tmst, '%Y-%m-%d')
             self.rec_info['version'] = '0.5.4'
-            while not self.rec_info['source_path']:
-                self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-                 if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
-                time.sleep(.5)
+            self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
         if self.rec_info['source_path']:
             self.rec_info['source_path'] = self.rec_info['source_path'][0]
             self.logger.log('Recording', data=self.rec_info, schema='recording')
             self.ui.file.setText(os.path.basename(self.rec_info['filename']))
             self.rec_started = True
             self.ui.recording_indicator.setDown(True)
+
+    def report(self, message):
+        self.ui.text_output.setText(message)
+        print(message)
 
     def update_animal_id(self):
         self.animal_id = self.ui.animal_input.text()
@@ -97,7 +103,6 @@ class Runner(QtWidgets.QWidget):
         self.ui.session_id.setText(str(self.logger.get_last_session()))
 
     def update_setup(self):
-        self.update_setups()
         self.setup_name = self.ui.setup.currentText()
         if self.setup_name != 'local':
             self.logger.setup = self.setup_name
@@ -125,10 +130,12 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setText("Running")
         self.recorder.send('start')
         self.session_key = dict(animal_id=self.animal_id, session=self.logger.get_last_session() + 1)
-        while self.ui.connect_indicator.isDown() and not self.rec_started: time.sleep(.1)
+        while self.ui.connect_indicator.isDown() and not self.rec_started:
+            time.sleep(.1); self.report('Wating for recording to start')
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
-            while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0: time.sleep(.2)
+            while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
+                time.sleep(.2); self.report('Wating session to start')
             self.ui.stimulus_indicator.setDown(True)
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
@@ -139,6 +146,7 @@ class Runner(QtWidgets.QWidget):
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
                             data={**self.session_key, 'anesthesia': self.ui.anesthesia.currentText()})
+        self.report('Experiment started')
 
     def stop_rec(self, *args):
         self.rec_started = False
@@ -147,12 +155,13 @@ class Runner(QtWidgets.QWidget):
             source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 target_file = os.path.join(self.rec_info['target_path'], self.rec_info['filename'])
-                print('Copying %s to %s' % (source_file, target_file))
+                self.report('Copying %s to %s' % (source_file, target_file))
                 self.copier.append(source_file, target_file)
 
     def stop(self):
-        self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
+        self.report('Stopping')
         self.ui.stop_button.setText("Stopping")
+        self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
         if self.ui.task_check.checkState():
             if self.setup_name == 'local':
                 while self.pymouse_proc.poll() is None: time.sleep(.1)
@@ -171,6 +180,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setText("Start")
         self.ui.stop_button.setText("Stop")
         self.ui.running_indicator.setDown(False)
+        self.report('Ready')
 
     def abort(self):
         self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
@@ -183,6 +193,7 @@ class Runner(QtWidgets.QWidget):
         if txt:
             self.logger.log('Session.Notes', {**self.session_key, 'note': txt})
             self.ui.note_field.setPlainText('')
+            self.report('Note inserted')
 
     def insert_surgery(self):
         if self.ui.surgery_type.currentText() != 'none':
@@ -193,6 +204,7 @@ class Runner(QtWidgets.QWidget):
                                                  timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
                                                  note=self.ui.surgery_notes.toPlainText()), schema='mice')
             self.ui.surgery_notes.setPlainText('')
+            self.report('Surgery inserted')
 
     def insert_anesthesia(self):
         if self.ui.anesthesia_type.currentText() != 'none':
@@ -202,12 +214,14 @@ class Runner(QtWidgets.QWidget):
                                                     user_name=self.ui.user.currentText(),
                                                     timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
                                                     dose=self.ui.anesthesia_dose.text()), schema='recording')
+            self.report('Anesthesia inserted')
 
     def copying_callback(self):
         if self.copier.copying.is_set():
             self.ui.copying_indicator.setDown(True)
         else:
             self.ui.copying_indicator.setDown(False)
+            self.report('')
 
     def closeEvent(self, event):
         self.recorder.quit()
