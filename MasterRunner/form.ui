@@ -13,7 +13,7 @@
     <x>0</x>
     <y>0</y>
     <width>335</width>
-    <height>284</height>
+    <height>272</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -790,9 +790,9 @@
    <property name="geometry">
     <rect>
      <x>250</x>
-     <y>260</y>
+     <y>240</y>
      <width>71</width>
-     <height>20</height>
+     <height>25</height>
     </rect>
    </property>
    <property name="font">
@@ -817,9 +817,9 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>260</y>
+     <y>240</y>
      <width>71</width>
-     <height>20</height>
+     <height>25</height>
     </rect>
    </property>
    <property name="font">
@@ -844,9 +844,9 @@
    <property name="geometry">
     <rect>
      <x>90</x>
-     <y>260</y>
+     <y>240</y>
      <width>71</width>
-     <height>20</height>
+     <height>25</height>
     </rect>
    </property>
    <property name="font">
@@ -873,9 +873,9 @@
    <property name="geometry">
     <rect>
      <x>170</x>
-     <y>260</y>
+     <y>240</y>
      <width>71</width>
-     <height>20</height>
+     <height>25</height>
     </rect>
    </property>
    <property name="font">
@@ -896,44 +896,6 @@
    </property>
    <property name="checked">
     <bool>true</bool>
-   </property>
-  </widget>
-  <widget class="QLabel" name="text_output">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>230</y>
-     <width>311</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>11</pointsize>
-     <italic>true</italic>
-    </font>
-   </property>
-   <property name="text">
-    <string/>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignCenter</set>
-   </property>
-  </widget>
-  <widget class="QFrame" name="frame_6">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>232</y>
-     <width>331</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="frameShape">
-    <enum>QFrame::StyledPanel</enum>
-   </property>
-   <property name="frameShadow">
-    <enum>QFrame::Raised</enum>
    </property>
   </widget>
  </widget>
