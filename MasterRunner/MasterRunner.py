@@ -45,8 +45,6 @@ class Runner(QtWidgets.QWidget):
         self.ui.anesthesia_type.addItems(self.logger.get(table='AnesthesiaType', fields=['anesthesia'], schema='recording'))
         self.ui.aim.addItems(self.logger.get(table='Aim', fields=['rec_aim'], schema='recording'))
         self.ui.software.addItems(self.logger.get(table='Software', fields=['software'], schema='recording'))
-        self.ui.setup.addItems(self.logger.get(table='Control', fields=['setup'], schema='experiment',
-                                               key={'status': 'ready'}))
         self.recorder = Communicator(connect_callback=self.ui.connect_indicator.setDown)
         self.ui.animal_input.textChanged.connect(self.update_animal_id)
         self.recorder.register_callback(dict(started=self.set_rec_info))
@@ -56,6 +54,11 @@ class Runner(QtWidgets.QWidget):
         self.ui.anesthesia_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.surgery_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
+        self.update_setups()
+
+    def update_setups(self):
+        self.ui.setup.addItems(self.logger.get(table='Control', fields=['setup'], schema='experiment',
+                                               key={'status': 'ready'}))
 
     def set_rec_info(self, key):
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
@@ -65,17 +68,21 @@ class Runner(QtWidgets.QWidget):
                                    '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
                                    datetime.strftime(sess_tmst, '%Y-%m-%d_%H-%M-%S'))
         self.rec_info = {**self.session_key, **key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
-                         'target_path': target_path}
+                         'target_path': target_path, 'source_path': []}
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
-            self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-             if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
+            while not  self.rec_info['source_path']:
+                self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
+                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
+                time.sleep(.5)
         elif self.rec_info['software'] == 'OpenEphys':
             date = datetime.strftime(sess_tmst, '%Y-%m-%d')
             self.rec_info['version'] = '0.5.4'
-            self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
+            while not self.rec_info['source_path']:
+                self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+                 if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
+                time.sleep(.5)
         if self.rec_info['source_path']:
             self.rec_info['source_path'] = self.rec_info['source_path'][0]
             self.logger.log('Recording', data=self.rec_info, schema='recording')
@@ -90,6 +97,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.session_id.setText(str(self.logger.get_last_session()))
 
     def update_setup(self):
+        self.update_setups()
         self.setup_name = self.ui.setup.currentText()
         if self.setup_name != 'local':
             self.logger.setup = self.setup_name
@@ -150,7 +158,7 @@ class Runner(QtWidgets.QWidget):
                 while self.pymouse_proc.poll() is None: time.sleep(.1)
             else:
                 while self.logger.get(table='Control', fields=['status'], schema='experiment',
-                                      key={'setup': self.logger.setup}) not in {'exit','ready'}:
+                                      key={'setup': self.logger.setup})[0] not in {'exit','ready'}:
                     time.sleep(.1)
             self.ui.stimulus_indicator.setDown(False)
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
