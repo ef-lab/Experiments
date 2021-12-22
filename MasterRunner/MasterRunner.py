@@ -76,6 +76,7 @@ class Runner(QtWidgets.QWidget):
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
+            self.ui.aim.
             while not self.rec_info['source_path']:  # waiting for recording to start
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
                  if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
@@ -93,7 +94,6 @@ class Runner(QtWidgets.QWidget):
             self.ui.recording_indicator.setDown(True)
 
     def report(self, message):
-        self.ui.text_output.setText(message)
         print(message)
 
     def update_animal_id(self):
@@ -131,11 +131,11 @@ class Runner(QtWidgets.QWidget):
         self.recorder.send('start')
         self.session_key = dict(animal_id=self.animal_id, session=self.logger.get_last_session() + 1)
         while self.ui.connect_indicator.isDown() and not self.rec_started:
-            time.sleep(.1); self.report('Wating for recording to start')
+            time.sleep(.1); self.report('Waiting for recording to start')
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
             while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
-                time.sleep(.2); self.report('Wating session to start')
+                time.sleep(.4); self.report('Waiting session to start')
             self.ui.stimulus_indicator.setDown(True)
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
@@ -221,7 +221,7 @@ class Runner(QtWidgets.QWidget):
             self.ui.copying_indicator.setDown(True)
         else:
             self.ui.copying_indicator.setDown(False)
-            self.report('')
+            #self.report('')
 
     def closeEvent(self, event):
         self.recorder.quit()
