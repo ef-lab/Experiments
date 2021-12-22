@@ -76,7 +76,6 @@ class Runner(QtWidgets.QWidget):
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
-            self.ui.aim.
             while not self.rec_info['source_path']:  # waiting for recording to start
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
                  if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
