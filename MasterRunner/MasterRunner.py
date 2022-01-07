@@ -78,7 +78,8 @@ class Runner(QtWidgets.QWidget):
             self.rec_info['version'] = '1.10'
             while not self.rec_info['source_path']:  # waiting for recording to start
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
+                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >=
+                                                sess_tmst-timedelta(seconds=20)]
                 if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
         elif self.rec_info['software'] == 'OpenEphys':
             date = datetime.strftime(sess_tmst, '%Y-%m-%d')
