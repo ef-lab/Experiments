@@ -149,14 +149,14 @@ class Runner(QtWidgets.QWidget):
         self.report('Experiment started')
 
     def stop_rec(self, *args):
-        self.rec_started = False
         self.ui.recording_indicator.setDown(False)
-        if isinstance(self.rec_info, dict) and self.ui.autocopy.checkState():
+        if self.rec_started and self.ui.autocopy.checkState():
             source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 target_file = os.path.join(self.rec_info['target_path'], self.rec_info['filename'])
                 self.report('Copying %s to %s' % (source_file, target_file))
                 self.copier.append(source_file, target_file)
+        self.rec_started = False
 
     def stop(self):
         self.report('Stopping')
