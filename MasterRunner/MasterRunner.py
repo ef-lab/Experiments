@@ -71,15 +71,14 @@ class Runner(QtWidgets.QWidget):
         target_path = os.path.join(self.targetpath, key['software'], str(self.session_key['animal_id']) +
                                    '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
                                    datetime.strftime(sess_tmst, '%Y-%m-%d_%H-%M-%S'))
-        self.rec_info = {**self.session_key, **key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
-                         'target_path': target_path, 'source_path': []}
+        self.rec_info = {**self.session_key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
+                         'target_path': target_path, 'source_path': [], **key}
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
             while not self.rec_info['source_path']:  # waiting for recording to start
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >=
-                                                sess_tmst-timedelta(seconds=20)]
+                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
                 if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
         elif self.rec_info['software'] == 'OpenEphys':
             date = datetime.strftime(sess_tmst, '%Y-%m-%d')
@@ -163,11 +162,11 @@ class Runner(QtWidgets.QWidget):
         self.ui.stop_button.setText("Stopping")
         self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
         if self.ui.task_check.checkState():
-            if self.setup_name == 'local':
-                while self.pymouse_proc.poll() is None: time.sleep(.1)
-            else:
-                while self.logger.get(table='Control', fields=['status'], schema='experiment',
-                                      key={'setup': self.logger.setup})[0] not in {'exit','ready'}:
+            #if self.setup_name == 'local':
+            #    while self.pymouse_proc.poll() is None: time.sleep(.1)
+            #else:
+            while self.logger.get(table='Control', fields=['status'], schema='experiment',
+                                  key={'setup': self.logger.setup})[0] not in {'exit', 'ready'}:
                     time.sleep(.1)
             self.ui.stimulus_indicator.setDown(False)
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
