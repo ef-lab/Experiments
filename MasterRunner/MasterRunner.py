@@ -18,21 +18,17 @@ import common as common
 
 class Runner(QtWidgets.QWidget):
     animal_id, session, setup_name, rec_info, rec_started, exit = '', '', '', '', False, False
+    colormap, common, state, dtype, shape = 'gray', common, 'starting', numpy.int16, (600, 600)
 
-    def __init__(self, shape=(600, 600), dtype=numpy.int16):
+    def __init__(self):
         self.logger = Logger()
         self.logger.setup_schema({'recording': 'lab_recordings'})
-        self.common = common
         super(Runner, self).__init__()
         self.queue = Queue()
-        self.dtype = dtype
-        self.shape = shape
-        self.colormap = 'gray'
-        self.targetpath = self.common.Paths().getLocal('data')#'X:/' if is_win else '/mnt/lab/data/'
+        self.targetpath = self.common.Paths().getLocal('data')
         self.copier = Copier()
         self.copier.run()
         self.timer = Timer()
-        self.running = False
 
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
@@ -58,6 +54,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
         self.ui.stim_refresh.clicked.connect(self.update_setups)
         self.update_setups()
+        self.state = 'ready'
         self.report('Ready')
 
     def update_setups(self):
@@ -131,15 +128,16 @@ class Runner(QtWidgets.QWidget):
                                           dict(setup=self.setup_name))
 
     def start(self):
-        if not self.running:
+        if self.state == 'ready':
             self.start_thread = threading.Thread(target=self._start)
             self.start_thread.start()
 
     def _start(self):
+        self.state = 'starting'
         self.update_setup()
         self.update_animal_id()
         self.ui.start_button.setDown(True)
-        self.ui.start_button.setText("Running")
+        self.ui.start_button.setText("Starting...")
         self.recorder.send('start')
         self.session_key = dict(animal_id=self.animal_id, session=self.logger.get_last_session() + 1)
         self.timer.start()
@@ -153,7 +151,7 @@ class Runner(QtWidgets.QWidget):
             self.report('Waiting session to start')
             while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
                 time.sleep(.4)
-                if self.timer.elapsed_time() > 5000: self.report('Sessioon problem, Aborting'); self.stop(); return
+                if self.timer.elapsed_time() > 30000: self.report('Session problem, Aborting'); self.stop(); return
             self.ui.stimulus_indicator.setDown(True)
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
@@ -165,8 +163,9 @@ class Runner(QtWidgets.QWidget):
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
                             data={**self.session_key, 'anesthesia': self.ui.anesthesia.currentText()})
+        self.ui.start_button.setText("Running")
         self.report('Experiment started')
-        self.running = True
+        self.state = 'running'
 
     def stop_rec(self, *args):
         self.ui.recording_indicator.setDown(False)
@@ -179,20 +178,21 @@ class Runner(QtWidgets.QWidget):
         self.rec_started = False
 
     def stop(self):
-        if not self.stop_thread.is_alive() and self.running:
+        if self.state in {'running', 'starting'}:
             self.stop_thread = threading.Thread(target=self._stop)
             self.stop_thread.start()
 
     def _stop(self):
+        self.state = 'stopping'
         self.report('Stopping')
         self.ui.stop_button.setText("Stopping")
         self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
         if self.ui.task_check.checkState():
-            #if self.setup_name == 'local':
-            #    while self.pymouse_proc.poll() is None: time.sleep(.1)
-            #else:
-            while self.logger.get(table='Control', fields=['status'], schema='experiment',
-                                  key={'setup': self.logger.setup})[0] not in {'exit', 'ready'}:
+            if self.setup_name == 'local':
+                while self.pymouse_proc.poll() is None: time.sleep(.1)
+            else:
+                while self.logger.get(table='Control', fields=['status'], schema='experiment',
+                                      key={'setup': self.logger.setup})[0] not in {'exit', 'ready'}:
                     time.sleep(.1)
             self.ui.stimulus_indicator.setDown(False)
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
@@ -206,10 +206,11 @@ class Runner(QtWidgets.QWidget):
         self.ui.stop_button.setText("Stop")
         self.ui.running_indicator.setDown(False)
         self.report('Ready')
-        self.running = False
+        self.state = 'ready'
 
     def abort(self):
-        if self.running:
+        if self.state in {'running','starting'}:
+            if self.setup_name == 'local': Popen.kill(self.pymouse_proc)
             self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
             self.ui.abort_button.setText("Aborting")
             self.stop()
