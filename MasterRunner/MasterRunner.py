@@ -11,6 +11,7 @@ sys.path.append(os_path + 'lab/python')
 sys.path.append(os_path + 'Experiments')
 from ExpUtils.Communicator import *
 from ExpUtils.Copier import *
+from utils.Timer import *
 from core.Logger import *
 import common as common
 
@@ -30,6 +31,8 @@ class Runner(QtWidgets.QWidget):
         self.targetpath = self.common.Paths().getLocal('data')#'X:/' if is_win else '/mnt/lab/data/'
         self.copier = Copier()
         self.copier.run()
+        self.timer = Timer()
+        self.running = False
 
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
@@ -67,24 +70,30 @@ class Runner(QtWidgets.QWidget):
     def set_rec_info(self, key):
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
         rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-        sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
+        self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
         target_path = os.path.join(self.targetpath, key['software'], str(self.session_key['animal_id']) +
                                    '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
-                                   datetime.strftime(sess_tmst, '%Y-%m-%d_%H-%M-%S'))
+                                   datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
         self.rec_info = {**self.session_key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
                          'target_path': target_path, 'source_path': [], **key}
+        self.rec_thread = threading.Thread(target=self._set_rec_info)
+        self.rec_thread.start()
+
+    def _set_rec_info(self):
         if self.rec_info['software'] == 'Miniscope':
-            date = datetime.strftime(sess_tmst, '%Y_%m_%d')
+            date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
+            self.timer.start()
             while not self.rec_info['source_path']:  # waiting for recording to start
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= sess_tmst]
+                 if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
                 if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
+                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.stop(); return
         elif self.rec_info['software'] == 'OpenEphys':
-            date = datetime.strftime(sess_tmst, '%Y-%m-%d')
+            date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
             self.rec_info['version'] = '0.5.4'
             self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= sess_tmst-timedelta(seconds=10)]
+             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=10)]
         if self.rec_info['source_path']:
             self.rec_info['source_path'] = self.rec_info['source_path'][0]
             self.logger.log('Recording', data=self.rec_info, schema='recording')
@@ -122,22 +131,33 @@ class Runner(QtWidgets.QWidget):
                                           dict(setup=self.setup_name))
 
     def start(self):
+        if not self.running:
+            self.start_thread = threading.Thread(target=self._start)
+            self.start_thread.start()
+
+    def _start(self):
         self.update_setup()
         self.update_animal_id()
-        self.ui.running_indicator.setDown(True)
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Running")
         self.recorder.send('start')
         self.session_key = dict(animal_id=self.animal_id, session=self.logger.get_last_session() + 1)
+        self.timer.start()
+        self.report('Waiting for recording to start')
         while self.ui.connect_indicator.isDown() and not self.rec_started:
-            time.sleep(.1); self.report('Waiting for recording to start')
+            time.sleep(.1)
+            if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.stop(); return
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
+            self.timer.start()
+            self.report('Waiting session to start')
             while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
-                time.sleep(.4); self.report('Waiting session to start')
+                time.sleep(.4)
+                if self.timer.elapsed_time() > 5000: self.report('Sessioon problem, Aborting'); self.stop(); return
             self.ui.stimulus_indicator.setDown(True)
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
+        self.ui.running_indicator.setDown(True)
         self.ui.session_id.setText(str(self.session_key['session']))
         # set recording info
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
@@ -146,6 +166,7 @@ class Runner(QtWidgets.QWidget):
             self.logger.log('Recording.Anesthetized', schema='recording',
                             data={**self.session_key, 'anesthesia': self.ui.anesthesia.currentText()})
         self.report('Experiment started')
+        self.running = True
 
     def stop_rec(self, *args):
         self.ui.recording_indicator.setDown(False)
@@ -158,6 +179,11 @@ class Runner(QtWidgets.QWidget):
         self.rec_started = False
 
     def stop(self):
+        if not self.stop_thread.is_alive() and self.running:
+            self.stop_thread = threading.Thread(target=self._stop)
+            self.stop_thread.start()
+
+    def _stop(self):
         self.report('Stopping')
         self.ui.stop_button.setText("Stopping")
         self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
@@ -180,12 +206,14 @@ class Runner(QtWidgets.QWidget):
         self.ui.stop_button.setText("Stop")
         self.ui.running_indicator.setDown(False)
         self.report('Ready')
+        self.running = False
 
     def abort(self):
-        self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
-        self.ui.abort_button.setText("Aborting")
-        self.stop()
-        self.ui.abort_button.setText("Abort")
+        if self.running:
+            self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
+            self.ui.abort_button.setText("Aborting")
+            self.stop()
+            self.ui.abort_button.setText("Abort")
 
     def insert_note(self):
         txt = self.ui.note_field.toPlainText()
@@ -216,11 +244,7 @@ class Runner(QtWidgets.QWidget):
             self.report('Anesthesia inserted')
 
     def copying_callback(self):
-        if self.copier.copying.is_set():
-            self.ui.copying_indicator.setDown(True)
-        else:
-            self.ui.copying_indicator.setDown(False)
-            #self.report('')
+        self.ui.copying_indicator.setDown(self.copier.copying.is_set())
 
     def closeEvent(self, event):
         self.recorder.quit()
@@ -235,7 +259,6 @@ if __name__ == "__main__":
     MainEventThread = QtWidgets.QApplication([])
     MainApp = Runner()
     MainApp.show()
-    #MainEventThread.exec()
     while not MainApp.exit:
         MainEventThread.processEvents()
         MainApp.copying_callback()

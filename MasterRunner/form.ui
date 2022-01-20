@@ -91,6 +91,9 @@
           <height>16777215</height>
          </size>
         </property>
+        <property name="text">
+         <string/>
+        </property>
        </widget>
       </item>
       <item row="1" column="1">
@@ -450,6 +453,9 @@
         <property name="buttonSymbols">
          <enum>QAbstractSpinBox::NoButtons</enum>
         </property>
+        <property name="maximum">
+         <number>99999</number>
+        </property>
        </widget>
       </item>
       <item row="0" column="0">
@@ -668,7 +674,7 @@
       <rect>
        <x>10</x>
        <y>130</y>
-       <width>311</width>
+       <width>316</width>
        <height>71</height>
       </rect>
      </property>
