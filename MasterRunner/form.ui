@@ -467,6 +467,43 @@
       </item>
       <item row="1" column="0">
        <widget class="QLineEdit" name="session_id">
+        <property name="palette">
+         <palette>
+          <active>
+           <colorrole role="Base">
+            <brush brushstyle="SolidPattern">
+             <color alpha="255">
+              <red>236</red>
+              <green>236</green>
+              <blue>236</blue>
+             </color>
+            </brush>
+           </colorrole>
+          </active>
+          <inactive>
+           <colorrole role="Base">
+            <brush brushstyle="SolidPattern">
+             <color alpha="255">
+              <red>236</red>
+              <green>236</green>
+              <blue>236</blue>
+             </color>
+            </brush>
+           </colorrole>
+          </inactive>
+          <disabled>
+           <colorrole role="Base">
+            <brush brushstyle="SolidPattern">
+             <color alpha="255">
+              <red>236</red>
+              <green>236</green>
+              <blue>236</blue>
+             </color>
+            </brush>
+           </colorrole>
+          </disabled>
+         </palette>
+        </property>
         <property name="styleSheet">
          <string notr="true"/>
         </property>
@@ -478,18 +515,62 @@
         </property>
        </widget>
       </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="trial_label">
+        <property name="text">
+         <string>Trials</string>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1">
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+       <widget class="QLineEdit" name="trial_number">
+        <property name="palette">
+         <palette>
+          <active>
+           <colorrole role="Base">
+            <brush brushstyle="SolidPattern">
+             <color alpha="255">
+              <red>236</red>
+              <green>236</green>
+              <blue>236</blue>
+             </color>
+            </brush>
+           </colorrole>
+          </active>
+          <inactive>
+           <colorrole role="Base">
+            <brush brushstyle="SolidPattern">
+             <color alpha="255">
+              <red>236</red>
+              <green>236</green>
+              <blue>236</blue>
+             </color>
+            </brush>
+           </colorrole>
+          </inactive>
+          <disabled>
+           <colorrole role="Base">
+            <brush brushstyle="SolidPattern">
+             <color alpha="255">
+              <red>236</red>
+              <green>236</green>
+              <blue>236</blue>
+             </color>
+            </brush>
+           </colorrole>
+          </disabled>
+         </palette>
         </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
+        <property name="styleSheet">
+         <string notr="true"/>
         </property>
-       </spacer>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -776,7 +857,7 @@
       <rect>
        <x>5</x>
        <y>129</y>
-       <width>320</width>
+       <width>321</width>
        <height>71</height>
       </rect>
      </property>
@@ -856,9 +937,9 @@
   <widget class="QPushButton" name="copying_indicator">
    <property name="geometry">
     <rect>
-     <x>250</x>
+     <x>190</x>
      <y>240</y>
-     <width>71</width>
+     <width>51</width>
      <height>25</height>
     </rect>
    </property>
@@ -886,7 +967,7 @@
     <rect>
      <x>10</x>
      <y>240</y>
-     <width>71</width>
+     <width>51</width>
      <height>25</height>
     </rect>
    </property>
@@ -912,9 +993,9 @@
   <widget class="QPushButton" name="stimulus_indicator">
    <property name="geometry">
     <rect>
-     <x>90</x>
+     <x>70</x>
      <y>240</y>
-     <width>71</width>
+     <width>51</width>
      <height>25</height>
     </rect>
    </property>
@@ -942,9 +1023,9 @@
   <widget class="QPushButton" name="recording_indicator">
    <property name="geometry">
     <rect>
-     <x>170</x>
+     <x>130</x>
      <y>240</y>
-     <width>71</width>
+     <width>51</width>
      <height>25</height>
     </rect>
    </property>
@@ -961,6 +1042,34 @@
    </property>
    <property name="text">
     <string>Recording</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="error_indicator">
+   <property name="geometry">
+    <rect>
+     <x>260</x>
+     <y>240</y>
+     <width>51</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <family>Arial</family>
+     <pointsize>9</pointsize>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton{border-radius: 10px;background-color : gray;}QPushButton::pressed{background-color : red;}</string>
+   </property>
+   <property name="text">
+    <string>Error</string>
    </property>
    <property name="checkable">
     <bool>true</bool>

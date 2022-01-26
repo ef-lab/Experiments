@@ -29,6 +29,7 @@ class Runner(QtWidgets.QWidget):
         self.copier = Copier()
         self.copier.run()
         self.timer = Timer()
+        self.main_timer = Timer()
 
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
@@ -128,6 +129,7 @@ class Runner(QtWidgets.QWidget):
                                           dict(setup=self.setup_name))
 
     def start(self):
+        self.ui.error_indicator.setDown(False)
         if self.state == 'ready':
             self.start_thread = threading.Thread(target=self._start)
             self.start_thread.start()
@@ -144,14 +146,18 @@ class Runner(QtWidgets.QWidget):
         self.report('Waiting for recording to start')
         while self.ui.connect_indicator.isDown() and not self.rec_started:
             time.sleep(.1)
-            if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.stop(); return
+            if self.timer.elapsed_time() > 10000:
+                self.report('Recording problem, Aborting')
+                self.ui.error_indicator.setDown(True); self.abort(); return
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
             self.timer.start()
             self.report('Waiting session to start')
             while len(self.logger.get(table='Session', fields=['session'], key=self.session_key)) == 0:
                 time.sleep(.4)
-                if self.timer.elapsed_time() > 30000: self.report('Session problem, Aborting'); self.stop(); return
+                if self.timer.elapsed_time() > 30000:
+                    self.report('Session problem, Aborting')
+                    self.ui.error_indicator.setDown(True); self.abort(); return
             self.ui.stimulus_indicator.setDown(True)
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
@@ -247,6 +253,22 @@ class Runner(QtWidgets.QWidget):
     def copying_callback(self):
         self.ui.copying_indicator.setDown(self.copier.copying.is_set())
 
+    def main(self):
+        if self.main_timer.elapsed_time() > 500:
+            self.copying_callback()
+            self.main_timer.start()
+            status, state, trials = self.logger.get(table='Control', fields=['status', 'state', 'trials'],
+                                                  schema='experiment', key={'setup': self.logger.setup})
+            if self.state == 'running' and self.ui.task_check.checkState():
+                self.ui.trial_number.setText(str(trials[0]))
+                if status[0] != 'running' and state[0] == 'ERROR!':
+                    self.report('Error!')
+                    self.ui.error_indicator.setDown(True)
+                    self.abort()
+                elif status[0] != 'running':
+                    self.report('experiment done!')
+                    self.stop()
+
     def closeEvent(self, event):
         self.recorder.quit()
         self.logger.update_setup_info(dict(status='exit'))
@@ -262,7 +284,7 @@ if __name__ == "__main__":
     MainApp.show()
     while not MainApp.exit:
         MainEventThread.processEvents()
-        MainApp.copying_callback()
+        MainApp.main()
         time.sleep(.01)
     MainEventThread.quit()
 
