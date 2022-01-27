@@ -49,12 +49,14 @@ class Runner(QtWidgets.QWidget):
         self.recorder.register_callback(dict(started=self.set_rec_info))
         self.recorder.register_callback(dict(stopped=self.stop_rec))
         self.ui.surgery_button.clicked.connect(self.insert_surgery)
+        self.ui.task.valueChanged.connect(self.update_task)
         self.ui.anesthesia_button.clicked.connect(self.insert_anesthesia)
         self.ui.anesthesia_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.surgery_time.setDateTime(QtCore.QDateTime.currentDateTime())
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
         self.ui.stim_refresh.clicked.connect(self.update_setups)
         self.update_setups()
+        self.update_sessions()
         self.state = 'ready'
         self.report('Ready')
 
@@ -172,6 +174,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setText("Running")
         self.report('Experiment started')
         self.state = 'running'
+        self.update_sessions()
 
     def stop_rec(self, *args):
         self.ui.recording_indicator.setDown(False)
@@ -213,9 +216,10 @@ class Runner(QtWidgets.QWidget):
         self.ui.running_indicator.setDown(False)
         self.report('Ready')
         self.state = 'ready'
+        self.update_sessions()
 
     def abort(self):
-        if self.state in {'running','starting'}:
+        if self.state in {'running', 'starting'}:
             if self.setup_name == 'local': Popen.kill(self.pymouse_proc)
             self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
             self.ui.abort_button.setText("Aborting")
@@ -250,6 +254,24 @@ class Runner(QtWidgets.QWidget):
                                                     dose=self.ui.anesthesia_dose.text()), schema='recording')
             self.report('Anesthesia inserted')
 
+    def update_task(self):
+        if self.ui.task.value():
+            protocol = self.logger.get(table='Task', fields=['protocol'],
+                                       schema='experiment', key={'task_idx': self.ui.task.value()})
+            if protocol:
+                path, filename = os.path.split(protocol[0])
+                self.ui.task_file.setText(str(filename))
+
+    def update_sessions(self):
+        info = ['']*5
+        info[0], info[1], info[2], info[3], info[4] = \
+            self.logger.get(table='Session', fields=['session', 'user_name', 'setup','experiment_type', 'session_tmst'],
+                            schema='experiment', key={'animal_id': self.animal_id})
+        # Set the table values
+        for row in range(len(info[0])):
+            for col in range(len(info)):
+                self.ui.Sessions.setItem(row, col, QtWidgets.QTableWidgetItem(str(info[col][len(info[0]) - row - 1])))
+
     def copying_callback(self):
         self.ui.copying_indicator.setDown(self.copier.copying.is_set())
 
@@ -258,7 +280,7 @@ class Runner(QtWidgets.QWidget):
             self.copying_callback()
             self.main_timer.start()
             status, state, trials = self.logger.get(table='Control', fields=['status', 'state', 'trials'],
-                                                  schema='experiment', key={'setup': self.logger.setup})
+                                                    schema='experiment', key={'setup': self.logger.setup})
             if self.state == 'running' and self.ui.task_check.checkState():
                 self.ui.trial_number.setText(str(trials[0]))
                 if status[0] != 'running' and state[0] == 'ERROR!':
