@@ -34,7 +34,7 @@
     </font>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>3</number>
    </property>
    <widget class="QWidget" name="Settings">
     <attribute name="title">
@@ -773,7 +773,7 @@
      <property name="font">
       <font>
        <family>Arial</family>
-       <pointsize>9</pointsize>
+       <pointsize>11</pointsize>
        <stylestrategy>NoAntialias</stylestrategy>
        <kerning>false</kerning>
       </font>
