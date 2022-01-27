@@ -12,8 +12,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>330</width>
-    <height>273</height>
+    <width>334</width>
+    <height>269</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -25,8 +25,26 @@
      <x>0</x>
      <y>0</y>
      <width>331</width>
-     <height>231</height>
+     <height>235</height>
     </rect>
+   </property>
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>0</width>
+     <height>200</height>
+    </size>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>16777215</width>
+     <height>235</height>
+    </size>
    </property>
    <property name="font">
     <font>
@@ -157,6 +175,19 @@
         </property>
        </widget>
       </item>
+      <item row="2" column="0">
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
       <item row="2" column="1" colspan="4">
        <widget class="QLabel" name="file_label_2">
         <property name="sizePolicy">
@@ -232,6 +263,24 @@
         </property>
        </widget>
       </item>
+      <item row="0" column="0" alignment="Qt::AlignHCenter">
+       <widget class="QLabel" name="software_label">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Arial</family>
+         </font>
+        </property>
+        <property name="text">
+         <string>Rec Software</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="1" colspan="3">
        <widget class="QComboBox" name="software">
         <property name="sizePolicy">
@@ -285,19 +334,6 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
       <item row="1" column="1" colspan="4">
        <widget class="QComboBox" name="setup">
         <property name="font">
@@ -326,24 +362,6 @@
           <width>12</width>
           <height>12</height>
          </size>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="0" alignment="Qt::AlignHCenter">
-       <widget class="QLabel" name="software_label">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Arial</family>
-         </font>
-        </property>
-        <property name="text">
-         <string>Rec Software</string>
         </property>
        </widget>
       </item>
@@ -442,6 +460,9 @@
       </rect>
      </property>
      <layout class="QGridLayout" name="gridLayout">
+      <property name="verticalSpacing">
+       <number>0</number>
+      </property>
       <item row="0" column="1">
        <widget class="QLabel" name="aim_label">
         <property name="maximumSize">
@@ -482,7 +503,7 @@
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>20</height>
+          <height>25</height>
          </size>
         </property>
         <item>
@@ -497,9 +518,9 @@
     <widget class="QWidget" name="layoutWidget">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>0</x>
        <y>110</y>
-       <width>301</width>
+       <width>321</width>
        <height>42</height>
       </rect>
      </property>
@@ -691,7 +712,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>16777215</width>
+          <width>300</width>
           <height>20</height>
          </size>
         </property>
@@ -748,19 +769,22 @@
     <widget class="QWidget" name="gridLayoutWidget">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>20</x>
        <y>60</y>
-       <width>301</width>
+       <width>281</width>
        <height>47</height>
       </rect>
      </property>
      <layout class="QGridLayout" name="gridLayout_7">
+      <property name="verticalSpacing">
+       <number>0</number>
+      </property>
       <item row="1" column="0">
        <widget class="QSpinBox" name="task">
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>20</height>
+          <height>25</height>
          </size>
         </property>
         <property name="buttonSymbols">
@@ -783,6 +807,12 @@
       </item>
       <item row="1" column="1">
        <widget class="QLineEdit" name="task_file">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>20</height>
+         </size>
+        </property>
         <property name="palette">
          <palette>
           <active>
@@ -888,9 +918,9 @@
     <widget class="QTableWidget" name="Sessions">
      <property name="geometry">
       <rect>
-       <x>0</x>
+       <x>10</x>
        <y>20</y>
-       <width>321</width>
+       <width>311</width>
        <height>181</height>
       </rect>
      </property>
@@ -1173,7 +1203,7 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>52</y>
+       <y>55</y>
        <width>91</width>
        <height>19</height>
       </rect>
@@ -1199,7 +1229,7 @@
      <property name="geometry">
       <rect>
        <x>5</x>
-       <y>139</y>
+       <y>144</y>
        <width>315</width>
        <height>61</height>
       </rect>
@@ -1267,7 +1297,7 @@
         <x>0</x>
         <y>0</y>
         <width>311</width>
-        <height>61</height>
+        <height>67</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_8">
@@ -1295,13 +1325,13 @@
          <property name="minimumSize">
           <size>
            <width>80</width>
-           <height>0</height>
+           <height>23</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>100</width>
-           <height>20</height>
+           <height>27</height>
           </size>
          </property>
          <property name="buttonSymbols">
@@ -1380,7 +1410,7 @@
        <x>5</x>
        <y>15</y>
        <width>315</width>
-       <height>105</height>
+       <height>111</height>
       </rect>
      </property>
      <property name="frameShape">
@@ -1398,14 +1428,14 @@
         <x>0</x>
         <y>10</y>
         <width>311</width>
-        <height>101</height>
+        <height>111</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout_4" rowstretch="0,0" columnstretch="0,0,0">
        <property name="sizeConstraint">
         <enum>QLayout::SetFixedSize</enum>
        </property>
-       <property name="horizontalSpacing">
+       <property name="spacing">
         <number>-1</number>
        </property>
        <item row="0" column="0">
@@ -1450,10 +1480,16 @@
        </item>
        <item row="0" column="1">
         <widget class="QDateTimeEdit" name="surgery_time">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>20</height>
+          </size>
+         </property>
          <property name="maximumSize">
           <size>
            <width>80</width>
-           <height>16777215</height>
+           <height>23</height>
           </size>
          </property>
          <property name="buttonSymbols">
@@ -1503,7 +1539,7 @@
     <widget class="QLabel" name="anesthesia_label_4">
      <property name="geometry">
       <rect>
-       <x>0</x>
+       <x>10</x>
        <y>0</y>
        <width>110</width>
        <height>15</height>
@@ -1523,8 +1559,8 @@
     <widget class="QLabel" name="anesthesia_label_5">
      <property name="geometry">
       <rect>
-       <x>0</x>
-       <y>125</y>
+       <x>10</x>
+       <y>130</y>
        <width>110</width>
        <height>15</height>
       </rect>
