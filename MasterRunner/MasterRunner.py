@@ -17,7 +17,7 @@ import common as common
 
 
 class Runner(QtWidgets.QWidget):
-    animal_id, session, setup_name, rec_info, rec_started, exit = '', '', '', '', False, False
+    animal_id, session, setup_name, rec_info, rec_started, exit = 0, '', '', '', False, False
     colormap, common, state, dtype, shape = 'gray', common, 'starting', numpy.int16, (600, 600)
 
     def __init__(self):
@@ -105,10 +105,11 @@ class Runner(QtWidgets.QWidget):
         print(message)
 
     def update_animal_id(self):
-        self.animal_id = self.ui.animal_input.text()
+        self.animal_id = int(self.ui.animal_input.text())
         self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
         self.recorder.send(dict(basename=self.animal_id))
         self.ui.session_id.setText(str(self.logger.get_last_session()))
+        self.update_sessions()
 
     def update_setup(self):
         self.setup_name = self.ui.setup.currentText()
@@ -268,6 +269,7 @@ class Runner(QtWidgets.QWidget):
             self.logger.get(table='Session', fields=['session', 'user_name', 'setup','experiment_type', 'session_tmst'],
                             schema='experiment', key={'animal_id': self.animal_id})
         # Set the table values
+        self.ui.Sessions.clearContents()
         for row in range(len(info[0])):
             for col in range(len(info)):
                 self.ui.Sessions.setItem(row, col, QtWidgets.QTableWidgetItem(str(info[col][len(info[0]) - row - 1])))
@@ -279,15 +281,13 @@ class Runner(QtWidgets.QWidget):
         if self.main_timer.elapsed_time() > 500:
             self.copying_callback()
             self.main_timer.start()
-            status, state, trials = self.logger.get(table='Control', fields=['status', 'state', 'trials'],
-                                                    schema='experiment', key={'setup': self.logger.setup})
             if self.state == 'running' and self.ui.task_check.checkState():
-                self.ui.trial_number.setText(str(trials[0]))
-                if status[0] != 'running' and state[0] == 'ERROR!':
+                self.ui.trial_number.setText(str(self.logger.setup_info['trials']))
+                if self.logger.setup_info['status'] != 'running' and self.logger.setup_info['state'] == 'ERROR!':
                     self.report('Error!')
                     self.ui.error_indicator.setDown(True)
                     self.abort()
-                elif status[0] != 'running':
+                elif self.logger.setup_info['status'] != 'running':
                     self.report('experiment done!')
                     self.stop()
 
