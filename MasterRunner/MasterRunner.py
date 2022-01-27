@@ -12,6 +12,7 @@ sys.path.append(os_path + 'Experiments')
 from ExpUtils.Communicator import *
 from ExpUtils.Copier import *
 from utils.Timer import *
+from utils.helper_functions import *
 from core.Logger import *
 import common as common
 
@@ -162,6 +163,8 @@ class Runner(QtWidgets.QWidget):
                     self.report('Session problem, Aborting')
                     self.ui.error_indicator.setDown(True); self.abort(); return
             self.ui.stimulus_indicator.setDown(True)
+            table = rgetattr(self.logger._schemata['experiment'], 'Session')
+            (table & self.session_key)._update('user_name', self.ui.user.currentText())
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
         self.ui.running_indicator.setDown(True)
