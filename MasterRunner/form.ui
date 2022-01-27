@@ -34,7 +34,7 @@
     </font>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>1</number>
    </property>
    <widget class="QWidget" name="Settings">
     <attribute name="title">
@@ -390,7 +390,7 @@
        <x>10</x>
        <y>10</y>
        <width>301</width>
-       <height>41</height>
+       <height>49</height>
       </rect>
      </property>
      <layout class="QGridLayout" name="gridLayout">
@@ -774,6 +774,8 @@
       <font>
        <family>Arial</family>
        <pointsize>9</pointsize>
+       <stylestrategy>NoAntialias</stylestrategy>
+       <kerning>false</kerning>
       </font>
      </property>
      <property name="verticalScrollMode">
@@ -1178,7 +1180,7 @@
       <rect>
        <x>10</x>
        <y>130</y>
-       <width>311</width>
+       <width>316</width>
        <height>71</height>
       </rect>
      </property>
@@ -1377,6 +1379,8 @@
     <font>
      <family>Arial</family>
      <pointsize>9</pointsize>
+     <stylestrategy>NoAntialias</stylestrategy>
+     <kerning>false</kerning>
     </font>
    </property>
    <property name="styleSheet">
@@ -1405,6 +1409,7 @@
     <font>
      <family>Arial</family>
      <pointsize>9</pointsize>
+     <kerning>false</kerning>
     </font>
    </property>
    <property name="styleSheet">
@@ -1435,6 +1440,8 @@
      <pointsize>9</pointsize>
      <weight>50</weight>
      <bold>false</bold>
+     <stylestrategy>NoAntialias</stylestrategy>
+     <kerning>false</kerning>
     </font>
    </property>
    <property name="styleSheet">
@@ -1465,6 +1472,8 @@
      <pointsize>9</pointsize>
      <weight>50</weight>
      <bold>false</bold>
+     <stylestrategy>NoAntialias</stylestrategy>
+     <kerning>false</kerning>
     </font>
    </property>
    <property name="styleSheet">
@@ -1493,6 +1502,8 @@
     <font>
      <family>Arial</family>
      <pointsize>9</pointsize>
+     <stylestrategy>NoAntialias</stylestrategy>
+     <kerning>false</kerning>
     </font>
    </property>
    <property name="styleSheet">
