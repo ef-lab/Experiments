@@ -3,6 +3,8 @@ import os, numpy, sys, threading, time, signal, glob
 from datetime import datetime, timedelta
 from pathlib import Path
 from subprocess import Popen
+from PyQt5.QtWidgets import QMessageBox
+
 is_win = os.name == 'nt'
 os_path = str(Path.home())
 os_path += '/Documents/GitHub/' if is_win else '/github/'
@@ -81,6 +83,7 @@ class Runner(QtWidgets.QWidget):
         self.rec_thread.start()
 
     def _set_rec_info(self):
+        #try:
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
             self.rec_info['version'] = '1.10'
@@ -89,18 +92,21 @@ class Runner(QtWidgets.QWidget):
                 self.rec_info['source_path'] = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
                  if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
                 if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
-                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.stop(); return
+                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
         elif self.rec_info['software'] == 'OpenEphys':
             date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
             self.rec_info['version'] = '0.5.4'
             self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=10)]
+             if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
         if self.rec_info['source_path']:
             self.rec_info['source_path'] = self.rec_info['source_path'][0]
             self.logger.log('Recording', data=self.rec_info, schema='recording')
-            self.ui.file.setText(os.path.basename(self.rec_info['filename']))
+            self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
             self.rec_started = True
             self.ui.recording_indicator.setDown(True)
+        #except:
+        #    print('rec error!')
+        #    self.ui.error_indicator.setDown(True); self.abort()
 
     def report(self, message):
         print(message)
@@ -139,6 +145,7 @@ class Runner(QtWidgets.QWidget):
             self.start_thread.start()
 
     def _start(self):
+        #try:
         self.state = 'starting'
         self.update_setup()
         self.update_animal_id()
@@ -163,8 +170,10 @@ class Runner(QtWidgets.QWidget):
                     self.report('Session problem, Aborting')
                     self.ui.error_indicator.setDown(True); self.abort(); return
             self.ui.stimulus_indicator.setDown(True)
+            self.logger.thread_lock.acquire()
             table = rgetattr(self.logger._schemata['experiment'], 'Session')
             (table & self.session_key)._update('user_name', self.ui.user.currentText())
+            self.logger.thread_lock.release()
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
         self.ui.running_indicator.setDown(True)
@@ -179,10 +188,16 @@ class Runner(QtWidgets.QWidget):
         self.report('Experiment started')
         self.state = 'running'
         self.update_sessions()
+        #except:
+        #    print('start error!')
+        #    self.ui.error_indicator.setDown(True)
+        #    self.abort()
 
     def stop_rec(self, *args):
         self.ui.recording_indicator.setDown(False)
         if self.rec_started and self.ui.autocopy.checkState():
+            if self.rec_info['software'] == 'OpenEphys':
+                time.sleep(20)
             source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 target_file = os.path.join(self.rec_info['target_path'], self.rec_info['filename'])
