@@ -7,8 +7,9 @@ class Copier:
     def __init__(self):
         self.queue = Queue()
         self.thread_end = Event()
+        self.pause = Event()
         self.copying = Event()
-        self.thread_runner = Process(target=self.dequeue, args=(self.queue, self.thread_end, self.copying))
+        self.thread_runner = Process(target=self.dequeue, args=(self.queue, self.thread_end, self.copying, self.pause))
 
     def run(self):
         self.thread_runner.start()
@@ -16,9 +17,9 @@ class Copier:
     def append(self, source, target):
         self.queue.put({'source': source, 'target': target})
 
-    def dequeue(self, q, thread_end, copying):
+    def dequeue(self, q, thread_end, copying, thread_pause):
         while not thread_end.is_set():
-            if not q.empty():
+            if not q.empty() and not thread_pause.is_set():
                 if not copying.is_set():
                     copying.set()
                 data = q.get()
@@ -34,6 +35,7 @@ class Copier:
                 time.sleep(.1)
 
     def exit(self):
+        if self.pause.is_set(): self.pause.clear()
         while not self.queue.empty():
             time.sleep(.1)
         self.thread_end.set()

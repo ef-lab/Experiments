@@ -141,6 +141,9 @@ class Runner(QtWidgets.QWidget):
     def start(self):
         self.ui.error_indicator.setDown(False)
         if self.state == 'ready':
+            if self.ui.software.currentText() == 'OpenEphys':
+                self._message('Start OpenEphys Recording!')
+                self.ui
             self.start_thread = threading.Thread(target=self._start)
             self.start_thread.start()
 
@@ -196,8 +199,6 @@ class Runner(QtWidgets.QWidget):
     def stop_rec(self, *args):
         self.ui.recording_indicator.setDown(False)
         if self.rec_started and self.ui.autocopy.checkState():
-            if self.rec_info['software'] == 'OpenEphys':
-                time.sleep(20)
             source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 target_file = os.path.join(self.rec_info['target_path'], self.rec_info['filename'])
@@ -209,6 +210,10 @@ class Runner(QtWidgets.QWidget):
         if self.state in {'running', 'starting'}:
             self.stop_thread = threading.Thread(target=self._stop)
             self.stop_thread.start()
+            if self.ui.software.currentText() == 'OpenEphys':
+                self.copier.pause.set()
+                self._message('Stop OpenEphys Recording!')
+                self.copier.pause.clear()
 
     def _stop(self):
         self.state = 'stopping'
@@ -317,6 +322,13 @@ class Runner(QtWidgets.QWidget):
         self.exit = True
         event.accept()  # let the window close
 
+    def _message(self, message):
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Information)
+        msgBox.setText(message)
+        msgBox.setStandardButtons(QMessageBox.Ok)
+        msgBox.exec()
+
 
 if __name__ == "__main__":
     MainEventThread = QtWidgets.QApplication([])
@@ -325,7 +337,7 @@ if __name__ == "__main__":
     while not MainApp.exit:
         MainEventThread.processEvents()
         MainApp.main()
-        time.sleep(.01)
+        time.sleep(.05)
     MainEventThread.quit()
 
 
