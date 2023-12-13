@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QMessageBox
 is_win = os.name == 'nt'
 os_path = str(Path.home())
 os_path += '/Documents/GitHub/' if is_win else '/github/'
-sys.path.append(os_path + 'PyMouse')
+sys.path.append(os_path + 'EthoPy')
 sys.path.append(os_path + 'lab/python')
 sys.path.append(os_path + 'Experiments')
 from ExpUtils.Communicator import *
@@ -20,7 +20,7 @@ import common as common
 
 
 class Runner(QtWidgets.QWidget):
-    animal_id, session, setup_name, rec_info, rec_started, exit = 0, '', '', '', False, False
+    animal_id, session, setup_name, rec_started, exit, rec_info = 0, '', '', False, False, {'software':"None"}
     colormap, common, state, dtype, shape = 'gray', common, 'starting', numpy.int16, (600, 600)
 
     def __init__(self):
@@ -71,18 +71,25 @@ class Runner(QtWidgets.QWidget):
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
 
     def set_rec_info(self, key):
+        print(key)
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
         rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-        self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
-        target_path = os.path.join(self.targetpath, key['software'], str(self.session_key['animal_id']) +
-                                   '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
-                                   datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
-        self.rec_info = {**self.session_key, 'rec_idx': rec_idx, 'rec_aim': self.ui.aim.currentText(),
-                         'target_path': target_path, 'source_path': [], **key}
-        self.rec_thread = threading.Thread(target=self._set_rec_info)
-        self.rec_thread.start()
+        self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText(),'rec_idx':rec_idx}
+        print(self.rec_info)
+        self.rec_started = True
 
-    def _set_rec_info(self):
+    def log_rec(self):
+        if self.rec_info['software'] != 'None':
+            self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
+            target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
+                                       '_' + str(self.session_key['session']) + '_' + str(self.rec_info['rec_idx']) + '_' +
+                                       datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
+            self.rec_info = {'source_path': [], **self.rec_info, **self.session_key,
+                             'target_path': target_path}
+            self.rec_thread = threading.Thread(target=self._log_rec_())
+            self.rec_thread.start()
+
+    def _log_rec_(self):
         #try:
         if self.rec_info['software'] == 'Miniscope':
             date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
@@ -132,8 +139,8 @@ class Runner(QtWidgets.QWidget):
 
     def run_task(self, task):
         if self.setup_name == 'local':
-            self.pymouse_proc = Popen('python3 %sPyMouse/run.py %d' % (os_path, task),
-                                      cwd=os_path+'PyMouse/', shell=True)
+            self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
+                                      cwd=os_path+'EthoPy/', shell=True)
         else:
             self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
                                           dict(setup=self.setup_name))
@@ -184,9 +191,11 @@ class Runner(QtWidgets.QWidget):
         # set recording info
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
             self.set_rec_info(dict(started=True, filename='', software=self.ui.software.currentText()))
+        self.log_rec()
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
-                            data={**self.session_key, 'anesthesia': self.ui.anesthesia.currentText()})
+                            data={**self.session_key,'rec_idx':self.rec_info['rec_idx'],
+                                  'anesthesia': self.ui.anesthesia.currentText()})
         self.ui.start_button.setText("Running")
         self.report('Experiment started')
         self.state = 'running'
@@ -199,6 +208,7 @@ class Runner(QtWidgets.QWidget):
     def stop_rec(self, *args):
         self.ui.recording_indicator.setDown(False)
         if self.rec_started and self.ui.autocopy.checkState():
+            print(self.rec_info['source_path'],self.rec_info['filename'])
             source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 target_file = os.path.join(self.rec_info['target_path'], self.rec_info['filename'])
@@ -222,7 +232,7 @@ class Runner(QtWidgets.QWidget):
         self.logger.update_setup_info(dict(status='stop'), dict(setup=self.logger.setup))
         if self.ui.task_check.checkState():
             if self.setup_name == 'local':
-                while self.pymouse_proc.poll() is None: time.sleep(.1)
+                while self.ethopy_proc.poll() is None: time.sleep(.1)
             else:
                 while self.logger.get(table='Control', fields=['status'], schema='experiment',
                                       key={'setup': self.logger.setup})[0] not in {'exit', 'ready'}:
@@ -244,7 +254,7 @@ class Runner(QtWidgets.QWidget):
 
     def abort(self):
         if self.state in {'running', 'starting'}:
-            if self.setup_name == 'local': Popen.kill(self.pymouse_proc)
+            if self.setup_name == 'local': Popen.kill(self.ethopy_proc)
             self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
             self.ui.abort_button.setText("Aborting")
             self.stop()

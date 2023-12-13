@@ -55,7 +55,7 @@ class Imager(QtWidgets.QWidget):
     def start_rec(self, *args):
         self.ui.rec_button.setDown(True)
         self.ui.stop_button.setDown(False)
-        self.filename = self.cam.rec(basename=self.basepath + self.basename)
+        self.filename = self.cam.rec(basename=self.basepath + str(self.basename))
         self.conn.send(dict(started=True, source_path=[os.path.dirname(self.filename)],
                             filename=os.path.basename(self.filename), software='Imager', version=self.version))
 
