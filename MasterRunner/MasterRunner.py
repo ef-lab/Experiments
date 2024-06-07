@@ -142,7 +142,7 @@ class Runner(QtWidgets.QWidget):
             self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
                                       cwd=os_path+'EthoPy/', shell=True)
         else:
-            self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
+            self.logger.update_setup_info(dict(task_idx=task, status='operational', animal_id=self.animal_id),
                                           dict(setup=self.setup_name))
 
     def start(self):
