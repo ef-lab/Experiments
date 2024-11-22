@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 is_win = os.name == 'nt'
 os_path = str(Path.home())
-os_path += '/Documents/GitHub/' if is_win else '/github/'
+os_path += '/GitHub/' if is_win else '/github/'
 sys.path.append(os_path + 'EthoPy')
 sys.path.append(os_path + 'lab/python')
 sys.path.append(os_path + 'Experiments')
@@ -17,6 +17,7 @@ from utils.Timer import *
 from utils.helper_functions import *
 from core.Logger import *
 import common as common
+import json
 
 
 class Runner(QtWidgets.QWidget):
@@ -63,6 +64,17 @@ class Runner(QtWidgets.QWidget):
         self.state = 'ready'
         self.report('Ready')
 
+        # read the configuration from the local_conf.json
+        try:
+            with open("local_conf.json", "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except FileNotFoundError:
+            logging.error("Configuration file 'local_conf.json' not found.")
+            raise
+        except json.JSONDecodeError:
+            logging.error("Configuration file 'local_conf.json' is not a valid JSON.")
+            raise
+
     def update_setups(self):
         self.ui.setup.currentIndexChanged.disconnect()
         self.ui.setup.clear()
@@ -105,6 +117,11 @@ class Runner(QtWidgets.QWidget):
             self.rec_info['version'] = '0.5.4'
             self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
              if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
+        elif self.rec_info['software'] == 'ScanImage':
+            date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
+            self.rec_info['version'] = '2023.1.0'
+            self.rec_info['source_path'] = glob.glob('F:/' + date + '_' + str(self.animal_id))
+
         if self.rec_info['source_path']:
             self.rec_info['source_path'] = self.rec_info['source_path'][0]
             self.logger.log('Recording', data=self.rec_info, schema='recording')
@@ -119,10 +136,15 @@ class Runner(QtWidgets.QWidget):
         print(message)
 
     def update_animal_id(self):
-        self.animal_id = int(self.ui.animal_input.text())
+        try:
+            self.animal_id = int(self.ui.animal_input.text())
+        except ValueError:
+            print("Animal ID does not contain a number!")
+            return
+
         self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
         self.recorder.send(dict(basename=self.animal_id))
-        self.ui.session_id.setText(str(self.logger.get_last_session()))
+        self.ui.session_id.setText(str(self.logger._get_last_session()))
         self.update_sessions()
 
     def update_setup(self):
@@ -142,7 +164,7 @@ class Runner(QtWidgets.QWidget):
             self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
                                       cwd=os_path+'EthoPy/', shell=True)
         else:
-            self.logger.update_setup_info(dict(task_idx=task, status='operational', animal_id=self.animal_id),
+            self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
                                           dict(setup=self.setup_name))
 
     def start(self):
@@ -162,7 +184,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Starting...")
         self.recorder.send('start')
-        self.session_key = dict(animal_id=self.animal_id, session=self.logger.get_last_session() + 1)
+        self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1)
         self.timer.start()
         self.report('Waiting for recording to start')
         while self.ui.connect_indicator.isDown() and not self.rec_started:
