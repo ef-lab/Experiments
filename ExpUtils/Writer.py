@@ -67,6 +67,6 @@ class Writer(object):
         while not self.queue.empty():
             time.sleep(.1)
         self.thread_end.set()
-        self.thread_runner.join()
+        #self.thread_runner.join()
         self.writing = False
         print('Done recording')

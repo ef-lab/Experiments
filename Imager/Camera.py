@@ -330,6 +330,113 @@ class SpinCam(Camera):
             pass
         super().quit()
 
+class PyLab(Camera):
+    def __init__(self, shape=(600, 600)):
+        #import PySpin
+        self.stream = []
+        self.fps = 20
+        self.time = 0
+        self.exposure_time = 4000
+        self.iframe = 0
+        self.reported_framerate = 0
+        self.x, self.y, self.width, self.height = 0,0,600,600
+
+        self.system = PySpin.System.GetInstance()
+        self.camera = self.system.GetCameras()[0]
+        self.setup_camera()
+        self.setup()
+        self.recording = False
+
+    def setup_camera(self):
+        self.camera.Init()
+        self.camera.UserSetSelector.SetValue(PySpin.UserSetSelector_Default)
+        self.camera.UserSetLoad()
+
+        self.acquisition_rate_node = self.camera.AcquisitionFrameRate
+        self.acquisition_rate_node.SetValue(int(self.fps))
+        self.rate_max = self.acquisition_rate_node.GetMax()
+        self.rate_min = self.acquisition_rate_node.GetMin()
+
+        self.dtype = numpy.uint16
+        #self.camera.AdcBitDepth.SetValue(PySpin.AdcBitDepth_Bit12)
+        self.camera.PixelFormat.SetValue(PySpin.PixelFormat_Mono16)
+        self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+        self.camera.GainAuto.SetValue(PySpin.GainAuto_Off)
+        self.set_gain(0)
+        self.camera.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+        self.max_exposure = 1000000/self.fps*0.95
+        self.camera.ExposureTime.SetValue(self.max_exposure)
+
+    def set_frame_rate(self, fps):
+        if fps > self.rate_max:
+            print('target FPS exceeds max allowed %d ' % self.rate_max)
+            return
+        elif fps < self.rate_min:
+            print('target FPS exceeds min allowed %d ' % self.rate_min)
+            return
+
+        mx_exposure = 1000000 / fps * 0.95
+        if mx_exposure < self.exposure_time:
+            print('Exposure higher than fps allows..')
+            print('Setting exposure to %d' % self.max_exposure)
+            self.set_exposure_time(mx_exposure, direct=True)
+        self.pause.set()
+        self.camera.EndAcquisition()
+        self.fps = fps
+        self.acquisition_rate_node.SetValue(int(self.fps))
+        self.max_exposure = 1000000 / self.fps * 0.95
+        self.camera.BeginAcquisition()
+        self.pause.clear()
+        return self.acquisition_rate_node.GetValue()
+
+    def set_exposure_time(self, exposure_prc, direct=False):
+        if direct:
+            print('Direct control!')
+            exposure_time = np.minimum(exposure_prc, self.max_exposure)
+        else:
+            exposure_time = self.max_exposure*exposure_prc/100
+        print(exposure_prc,self.max_exposure)
+        print('Setting exposure to %d ms' % exposure_time)
+        self.exposure_time = exposure_time  # in microseconds
+        self.camera.ExposureTime.SetValue(exposure_time)
+        return exposure_prc
+
+    def set_gain(self, gain):
+        self.camera.Gain.SetValue(gain)
+        self.camera.GainAuto.SetValue(PySpin.GainAuto_Off)
+
+    def start(self):
+        print('Starting acquisition')
+        self.camera.BeginAcquisition()
+        self.capture_runner.start()
+        self.thread_runner.start()
+
+    def capture(self, q, stream):
+        while not self.capture_end.is_set():
+            if not self.pause.is_set():
+                try:
+                    image = self.camera.GetNextImage()
+                    if image:
+                        item = dict()
+                        im = image.GetNDArray()
+                        dat = numpy.ndarray(buffer=im, dtype=self.dtype, shape=(1, self.width, self.height))
+                        item['frames'] = dat
+                        item['timestamps'] = time.time()
+                        q.put(item)
+                except:
+                    pass
+
+    def quit(self):
+        self.thread_end.set()
+        self.camera.EndAcquisition()
+        self.camera.DeInit()
+        del self.camera
+        try:
+            self.system.ReleaseInstance()
+        except:
+            pass
+        super().quit()
+
 
 class WebCam(Camera):
 

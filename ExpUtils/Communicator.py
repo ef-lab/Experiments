@@ -1,4 +1,4 @@
-import sys, threading, time, socket
+import sys, threading, time, socket, os
 from queue import Queue
 from pathlib import Path
 from multiprocessing.connection import Listener, Client
@@ -36,17 +36,17 @@ class Connector:
 
 class Master(Connector):
     def connect(self):
-        try:
-            self.conn_socket = Listener((self.host, self.port))
-            self.conn_socket._listener._socket.settimeout(3)
-            self.conn_socket._listener._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.conn = self.conn_socket.accept()
-            print('Connected by client', self.conn_socket.last_accepted)
-            return True
-        except:
-            self.conn_socket.close()
-            time.sleep(1)
-            return False
+        #try:
+        self.conn_socket = Listener((self.host, self.port))
+        self.conn_socket._listener._socket.settimeout(3)
+        self.conn_socket._listener._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.conn = self.conn_socket.accept()
+        print('Connected by client', self.conn_socket.last_accepted)
+        return True
+        #except:
+        #    self.conn_socket.close()
+        #    time.sleep(1)
+        #    return False
 
 
 class Slave(Connector):
@@ -66,7 +66,7 @@ class Slave(Connector):
 
 
 class Communicator:
-    def __init__(self, role='server', host='localhost', port=50007, timeout=1, connect_callback=[]):
+    def __init__(self, role='server', host='localhost', port=50007, timeout=1, connected=[], os_path=''):
         self.sendQ = Queue(maxsize=1)
         self.receiveQ = Queue(maxsize=1)
         self._callbacks = dict()
@@ -79,7 +79,7 @@ class Communicator:
             self.tcp = Slave(host, port, timeout)
 
         # set in/out threads
-        self.connected = TriggerObject(initial_value=False, callback=connect_callback)
+        self.connected = TriggerObject(initial_value=False, callback=connected)
         self.thread_end = threading.Event()
         self.thread_runner = threading.Thread(target=self.transmitter) 
         self.thread_runner.start()
