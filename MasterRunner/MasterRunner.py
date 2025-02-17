@@ -184,8 +184,6 @@ class Runner(QtWidgets.QWidget):
         if self.state == 'ready':
             if self.ui.software.currentText() == 'OpenEphys':
                 self._message('Start OpenEphys Recording!')
-            elif self.ui.software.currentText() == 'ScanImage':
-                self._message('Start ScanImage Recording!')
             time.sleep(1)
             self.start_thread = threading.Thread(target=self._start)
             self.start_thread.start()
@@ -195,13 +193,8 @@ class Runner(QtWidgets.QWidget):
         self.state = 'starting'
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Starting...")
-        self.recorder.start()
-        self.timer.start()
-        while self.ui.connect_indicator.isDown() and not self.rec_started:
-            time.sleep(.1)
-            if self.timer.elapsed_time() > 10000:
-                self.report('Recording problem, Aborting')
-                self.ui.error_indicator.setDown(True); self.abort(); return
+        
+
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
             self.timer.start()
@@ -219,6 +212,22 @@ class Runner(QtWidgets.QWidget):
             self.logger.thread_lock.release()
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
+
+        # start the experiment
+        #if self.ui.software.currentText() in ['ScanImage', 'Thorcam']:
+        #    self._message('Start Recorder!')
+        self.recorder.start()
+        self.timer.start()
+        while self.ui.connect_indicator.isDown() and not self.rec_started:
+            time.sleep(.1)
+            if self.timer.elapsed_time() > 10000:
+                self.report('Recording problem, Aborting')
+                self.ui.error_indicator.setDown(True); self.abort(); return
+
+        self.logger.update_setup_info(dict(status='operational', animal_id=self.animal_id),
+                                      dict(setup=self.setup_name))
+
+
         self.ui.running_indicator.setDown(True)
         self.ui.session_id.setText(str(self.session_key['session']))
         # set recording info
@@ -371,17 +380,17 @@ class Runner(QtWidgets.QWidget):
         if self.main_timer.elapsed_time() > 500:
             self.copying_callback()
             self.main_timer.start()
-            if self.state == 'running' and self.ui.task_check.checkState():
+            if self.state in ['running', 'operational'] and self.ui.task_check.checkState():
                 status = self.logger.get_setup_info('status')
                 self.ui.trial_number.setText(str(self.logger.setup_info['trials']))
-                if status != 'running' and self.logger.setup_info['state'] == 'ERROR!':
+                if status not in ['running', 'operational'] and self.logger.setup_info['state'] == 'ERROR!':
                     self.report('Error!')
                     self.ui.error_indicator.setDown(True)
                     self.abort()
-                elif status != 'running':
+                elif status not in ['running', 'operational']:
                     self.report('experiment done!')
                     self.stop()
-            elif self.state == 'running' and not self.ui.task_check.checkState() and not self.recorder.get_state():
+            elif self.state in ['running', 'operational'] and not self.ui.task_check.checkState() and not self.recorder.get_state():
                 self.report('experiment done!')
                 self.stop()
 
