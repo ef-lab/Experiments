@@ -5,6 +5,7 @@ from multiprocessing.connection import Listener, Client
 sys.path.append(str(Path.home()) + '/github/Experiments')
 from ExpUtils.TriggerObject import TriggerObject
 
+socket.setdefaulttimeout(60)
 
 class Connector:
     def __init__(self, host, port, timeout=1):
@@ -38,8 +39,8 @@ class Master(Connector):
     def connect(self):
         #try:
         self.conn_socket = Listener((self.host, self.port))
-        self.conn_socket._listener._socket.settimeout(3)
-        self.conn_socket._listener._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.conn_socket._listener._socket.settimeout(10)
+        self.conn_socket._listener._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 3)
         self.conn = self.conn_socket.accept()
         print('Connected by client', self.conn_socket.last_accepted)
         return True
@@ -104,6 +105,7 @@ class Communicator:
                         else:
                             for key in message:
                                 if key in self._callbacks:
+                                    print('message: ', key, message)
                                     self._callbacks[key](message)
                     
                      # send queued messages
@@ -124,6 +126,7 @@ class Communicator:
                 raise
 
     def register_callback(self, key):
+        print('communicator, updating callbacks: ', key)
         self._callbacks.update(key)
 
     def send(self, message):

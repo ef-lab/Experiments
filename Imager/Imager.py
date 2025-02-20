@@ -16,7 +16,8 @@ class Imager(QtWidgets.QWidget):
         super(Imager, self).__init__()
         self.queue = Queue(maxsize=2)
         self.basename = ''
-        self.basepath = 'D:/Imager/' #str(Path.home()) + '/data/'
+        #self.basepath = 'D:/Imager/' #str(Path.home()) + '/data/'
+        self.basepath = 'F:/Imager/' #str(Path.home()) + '/data/'
         #self.basepath = str(Path.home()) + '/data/'
         self.filename = ''
 
@@ -48,6 +49,7 @@ class Imager(QtWidgets.QWidget):
         self.conn.register_callback(dict(start=self.start_rec))
         self.conn.register_callback(dict(stop=self.stop_rec))
         self.conn.register_callback(dict(basename=self.set_basename))
+        self.conn.send('connected')
 
     def set_basename(self, key):
         self.basename = key['basename']
@@ -56,8 +58,11 @@ class Imager(QtWidgets.QWidget):
         self.ui.rec_button.setDown(True)
         self.ui.stop_button.setDown(False)
         self.filename = self.cam.rec(basename=self.basepath + str(self.basename))
-        self.conn.send(dict(started=True, source_path=[os.path.dirname(self.filename)],
-                            filename=os.path.basename(self.filename), software='Imager', version=self.version))
+        self.conn.send(dict(started=True,
+                            rec_info=dict(source_path=[os.path.dirname(self.filename)],
+                                          filename=os.path.basename(self.filename),
+                                          software='Imager',
+                                          version=self.version)))
 
     def stop_rec(self, *args):
         self.ui.rec_button.setDown(False)
@@ -81,8 +86,10 @@ class Imager(QtWidgets.QWidget):
 
     def setCamera(self):
         print('setting up camera')
-        cam = SpinCam(shape=self.shape)
+        #cam = SpinCam(shape=self.shape)
         #cam = WebCam(shape=self.shape)
+        cam = ThorCam(shape=self.shape)
+        print('done setting up camera')
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()
@@ -92,7 +99,7 @@ class Imager(QtWidgets.QWidget):
         if not self.queue.empty():
             item = self.queue.get()
             #print(np.max(np.max(item)))
-            image = QImage(item, self.cam.height, self.cam.width, QImage.Format_Indexed8)
+            image = QImage(item, self.cam.width, self.cam.height, QImage.Format_Indexed8)
             image.setColorTable(self.color_table)
             self.scene.clear()
             self.scene.addPixmap(QPixmap(image))

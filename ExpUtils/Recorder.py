@@ -15,6 +15,7 @@ class Recorder:
         self.base_folder = ''
         self.timer = Timer()
         self.running = False
+        self.rec_info = dict()
 
     def start(self):
         pass
@@ -28,8 +29,13 @@ class Recorder:
     def update_key(self, key):
         self.key.update(key)
 
+    def update_rec_info(self, rec_info):
+        self.rec_info.update(rec_info)
+
     def register_callback(self, key):
+        print('updating ', key)
         self._callbacks.update(key)
+        print(self._callbacks)
 
     def get_state(self):
         return self.running
@@ -38,23 +44,37 @@ class Recorder:
         pass
 
 
-class Imager(Communicator, Recorder):
-    def __init__(self, os_path='', connected=lambda: None):
-        super().__init__(connected=connected, os_path=os_path)
-
+class Imager(Recorder):
+    def __init__(self, os_path=''):
+        super().__init__(os_path=os_path)
+        self.comm = Communicator()
+        self._callbacks['rec_info'] = lambda x: self.update_rec_info(x)
+        self._callbacks.update(self._callbacks)
         if os.name == 'nt':
-            Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
+            #Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
+            Popen('python Y:/manolis/github/Experiments/Imager/Imager.py', cwd='Y:/manolis/github/Experiments', shell=True)
         else:
             Popen('sh Imager.sh', cwd='../', shell=True)
 
+            #self._callbacks['connected'](True)
+    def register_callback(self, key):
+        print('updating ', key)
+        self._callbacks.update(key)
+        self.comm.register_callback(key)
+        print(self._callbacks)
+
     def start(self):
-        self.send('start')
+        self.comm.send('start')
 
     def stop(self):
-        self.send('stop')
+        self.comm.send('stop')
 
-    def update_key(self, key):
-        self.send(key)
+    #def update_key(self, key):
+    #    self.send(key)
+
+    def get_rec_info(self, rec_idx):
+        self.update_rec_info(dict(rec_idx=rec_idx))
+        return self.rec_info
 
 
 class ScanImage(Recorder):
