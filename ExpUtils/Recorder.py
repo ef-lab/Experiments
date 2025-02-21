@@ -8,14 +8,15 @@ if os.getlogin() == 'ScanImage':
 
 
 class Recorder:
-    def __init__(self, os_path=''):
-        self._callbacks = dict(connected=lambda: None, started=lambda: None, stopped=lambda: None)
+    def __init__(self, os_path='', callbacks=dict(connected=lambda: None, started=lambda: None, stopped=lambda: None)):
         self.key = dict()
         self.filename = ''
         self.base_folder = ''
         self.timer = Timer()
         self.running = False
         self.rec_info = dict()
+        self._callbacks = dict()
+        self.register_callback(callbacks)
 
     def start(self):
         pass
@@ -33,9 +34,7 @@ class Recorder:
         self.rec_info.update(rec_info)
 
     def register_callback(self, key):
-        print('updating ', key)
         self._callbacks.update(key) # update the dictionary with the callback functions
-        print(self._callbacks)
 
     def get_state(self):
         return self.running
@@ -74,10 +73,8 @@ class Imager(Communicator, Recorder):
 
 
 class ScanImage(Recorder):
-    def __init__(self, connected=lambda x: None, message=lambda x: None):
-        super().__init__()
-        self._callbacks['connected'] = connected
-        self._callbacks['message'] = message
+    def __init__(self, callbacks):
+        super().__init__(callbacks=callbacks)
         mat_engines = matlab.engine.find_matlab()
         if not mat_engines:
             self._callbacks['message']("No MATLAB detected: \n " +
@@ -87,7 +84,6 @@ class ScanImage(Recorder):
             return False
 
         self.matlab = matlab.engine.connect_matlab(mat_engines[0])
-        self._callbacks['connected'](True)
         self.version = str(int(self.matlab.eval("hSI.VERSION_MAJOR", nargout=1))) + '.' + \
                        str(int(self.matlab.eval("hSI.VERSION_MINOR", nargout=1))) + '.' + \
                        str(int(self.matlab.eval("hSI.VERSION_UPDATE", nargout=1)))
@@ -96,6 +92,7 @@ class ScanImage(Recorder):
         self.base_folder = 'F:/' + now.strftime("%Y-%m-%d") + '/'
         self.matlab.eval("mkdir('" + self.base_folder + "')")
         self.matlab.eval("hSI.hScan_ImagingScanner.logFilePath='" + self.base_folder + "'", nargout=0)
+        self._callbacks['connected'](True)
 
     def get_rec_info(self, rec_idx):
         self.matlab.eval("hSI.hScan_ImagingScanner.logFileCounter=" + str(rec_idx), nargout=0)
@@ -122,7 +119,7 @@ class ScanImage(Recorder):
                 break
 
         if state == 'grab':
-            self._callbacks['recording'] = True
+            self._callbacks['recording'](True)
             self.running = True
 
     def stop(self):

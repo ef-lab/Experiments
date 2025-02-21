@@ -553,33 +553,31 @@ class ThorCam(Camera):
         return self.fps
 
     def set_exposure_time(self, exposure_prc, direct=False):
-        armed = self.camera.is_armed
-        if armed:
-            self.cam_pause()
+        #armed = self.camera.is_armed
+        #if armed:
+        #    self.cam_pause()
         if direct:
-            print('Direct control!')
             exposure_time = np.minimum(exposure_prc, self.max_exposure)
         else:
             exposure_time = self.max_exposure*exposure_prc/100
-        print(exposure_prc, self.max_exposure)
         print('Setting exposure to %d ms' % exposure_time)
         self.exposure_time = int(exposure_time)  # in microseconds
         self.camera.exposure_time_us = self.exposure_time
-        if armed:
-            self.cam_unpause()
+        #if armed:
+        #    self.cam_unpause()
         return exposure_prc
 
     def set_gain(self, gain):
-        armed = self.camera.is_armed
-        if armed:
-            self.cam_pause()
+        #armed = self.camera.is_armed
+        #if armed:
+        #    self.cam_pause()
         mn, mx = self.camera.gain_range
         if mn <= gain <= mx:
             self.camera.gain = gain
         else:
             print('Gain out of range! (', mn, ', ', mx, ' )')
-        if armed:
-            self.cam_unpause()
+        #if armed:
+        #    self.cam_unpause()
 
     def start(self):
         self.camera.arm(2)
@@ -619,8 +617,6 @@ class ThorCam(Camera):
         self.thread_end.set()
         self.camera.disarm()
         self.camera.dispose()
-        try:
-            self.system.ReleaseInstance()
-        except:
-            pass
-        super().quit()
+        self.capture_end.set()
+        if hasattr(self, 'saver') and self.saver.writing:
+            self.saver.exit()

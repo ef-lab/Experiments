@@ -20,7 +20,7 @@ class Imager(QtWidgets.QWidget):
         self.basepath = 'F:/Imager/' #str(Path.home()) + '/data/'
         #self.basepath = str(Path.home()) + '/data/'
         self.filename = ''
-
+        self.rec_info = dict()
         # load ui
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
@@ -58,11 +58,13 @@ class Imager(QtWidgets.QWidget):
         self.ui.rec_button.setDown(True)
         self.ui.stop_button.setDown(False)
         self.filename = self.cam.rec(basename=self.basepath + str(self.basename))
-        self.conn.send(dict(started=True,
-                            rec_info=dict(source_path=[os.path.dirname(self.filename)],
-                                          filename=os.path.basename(self.filename),
-                                          software='Imager',
-                                          version=self.version)))
+        self.rec_info = dict(source_path=os.path.dirname(self.filename),
+                             filename=os.path.basename(self.filename),
+                             software='Imager',
+                             version=self.version)
+        self.conn.send(dict(started=self.rec_info,
+                            recording=True,
+                            rec_info=self.rec_info))
 
     def stop_rec(self, *args):
         self.ui.rec_button.setDown(False)
@@ -77,7 +79,6 @@ class Imager(QtWidgets.QWidget):
 
     def updateExposure(self):
         if not self.ui.rec_button.isDown():
-            print(self.ui.exposure_input.value())
             self.ui.exposure_input.setValue(self.cam.set_exposure_time(self.ui.exposure_input.value()))
 
     def updateGain(self):
@@ -85,11 +86,9 @@ class Imager(QtWidgets.QWidget):
             self.cam.set_gain(self.ui.gain_input.value())
 
     def setCamera(self):
-        print('setting up camera')
         #cam = SpinCam(shape=self.shape)
         #cam = WebCam(shape=self.shape)
         cam = ThorCam(shape=self.shape)
-        print('done setting up camera')
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()

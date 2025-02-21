@@ -104,26 +104,26 @@ class Runner(QtWidgets.QWidget):
             self.logger.setup = self.setup_name
 
     def start_recorder(self):
+        callbacks = dict(connected=self.ui.connect_indicator.setDown,
+                         started=self.set_rec_info,
+                         stopped=self.stop_rec,
+                         report=self.report,
+                         abort=self.abort,
+                         recording=self.set_rec_status)
+
         if self.ui.software.currentText() == 'ScanImage':
-            self.recorder = ScanImage()
+            self.recorder = ScanImage(callbacks=callbacks)
             self.recorder.register_callback(dict(message=self._message))
         elif self.ui.software.currentText() == 'Imager':
             self.recorder = Imager(os_path=os_path)
+            self.recorder.register_callback(callbacks)
 
-        if self.recorder:
-            print('recorder running!')
-            self.recorder.register_callback(dict(connected=self.ui.connect_indicator.setDown,
-                                                 started=self.set_rec_info,
-                                                 stopped=self.stop_rec,
-                                                 report=self.report,
-                                                 abort=self.abort,
-                                                 recording=self.ui.recording_indicator.setDown))
+    def set_rec_status(self, status):
+        self.rec_started = status
+        self.ui.recording_indicator.setDown(status)
 
     def set_rec_info(self, key):
         self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
-        print('rec_info: ', self.rec_info)
-        self.rec_started = True
-        self.ui.recording_indicator.setDown(True)
 
     def log_rec(self):
         if self.rec_info['software'] != 'None':
@@ -160,8 +160,8 @@ class Runner(QtWidgets.QWidget):
             if self.rec_info['source_path']:
                 self.logger.log('Recording', data=self.rec_info, schema='recording')
                 self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
-                self.rec_started = True
-                self.ui.recording_indicator.setDown(True)
+                self.set_rec_status(True)
+
         except:
             print('rec error!')
             self.ui.error_indicator.setDown(True); self.abort()
@@ -179,13 +179,10 @@ class Runner(QtWidgets.QWidget):
         self.update_setup()
         self.update_animal_id()
         self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1)
-        print(self.session_key )
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
         rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-        rec_info = self.recorder.get_rec_info(rec_idx=rec_idx)
-        if rec_info:
-            print('setting rec_info: ', rec_info)
-            self.set_rec_info(rec_info)
+        self.rec_info['rec_idx'] = rec_idx
+        self.recorder.update_rec_info(dict(rec_idx=rec_idx))
         if self.state == 'ready':
             if self.ui.software.currentText() == 'OpenEphys':
                 self._message('Start OpenEphys Recording!')
@@ -198,7 +195,6 @@ class Runner(QtWidgets.QWidget):
         self.state = 'starting'
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Starting...")
-        
 
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
@@ -238,16 +234,14 @@ class Runner(QtWidgets.QWidget):
         # set recording info
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
             self.set_rec_info(dict(started=True, filename='', software=self.ui.software.currentText()))
-        elif self.ui.software.currentText() in ['Imager']:
+        elif self.ui.software.currentText() in ['Imager', 'ScanImage']:
             rec_info = self.recorder.get_rec_info(rec_idx=self.rec_info['rec_idx'])
             if rec_info:
-                print('setting rec_info2: ', rec_info)
                 self.set_rec_info(rec_info)
         elif not self.rec_info['filename']:
             self.report('Filename not set! Check recorder status... ')
             self.ui.error_indicator.setDown(True)
             self.abort()
-
         self.log_rec()
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
@@ -263,10 +257,9 @@ class Runner(QtWidgets.QWidget):
         #    self.abort()
 
     def stop_rec(self, *args):
-        self.ui.recording_indicator.setDown(False)
+        self.set_rec_status(False)
         if self.rec_started and self.ui.autocopy.checkState():
             source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
-            print(source_file)
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 self.copy_file(source_file, self.rec_info['filename'])
             else:
@@ -275,7 +268,6 @@ class Runner(QtWidgets.QWidget):
                     source_file = os.path.join(self.rec_info['source_path'], filepath)
                     if pattern.match(filepath):
                         self.copy_file(source_file, filepath)
-        self.rec_started = False
 
     def copy_file(self,source_file, target_file):
         target_file = os.path.join(self.rec_info['target_path'], target_file)

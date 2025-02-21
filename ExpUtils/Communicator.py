@@ -18,7 +18,6 @@ class Connector:
         if not isinstance(message, dict):
             message = {message: None}
         self.conn.send(message)
-        print('Sent Data!')
 
     def receive(self):
         if self.conn.poll():
@@ -27,7 +26,6 @@ class Connector:
                 self.conn.send('echo')
                 return False
             else:
-                print('Received Data!')
                 return data
         else:
             return False
@@ -106,13 +104,11 @@ class Communicator:
                         else:
                             for key in message:
                                 if key in self._callbacks:
-                                    print('message: ', key, message)
                                     self._callbacks[key](message[key])  # evaluate callback function with the field
                      # send queued messages
                     if not self.sendQ.empty():
                         message = self.sendQ.get()
                         self.tcp.send(message)
-                        print('Message sent!')
 
                 time.sleep(.1)
             except EOFError:
@@ -126,7 +122,6 @@ class Communicator:
                 raise
 
     def register_callback(self, key):
-        print('communicator, updating callbacks: ', key)
         self._callbacks.update(key)
 
     def send(self, message):
