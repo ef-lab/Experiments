@@ -34,7 +34,7 @@ class Recorder:
 
     def register_callback(self, key):
         print('updating ', key)
-        self._callbacks.update(key)
+        self._callbacks.update(key) # update the dictionary with the callback functions
         print(self._callbacks)
 
     def get_state(self):
@@ -44,33 +44,29 @@ class Recorder:
         pass
 
 
-class Imager(Recorder):
+class Imager(Communicator, Recorder):
     def __init__(self, os_path=''):
-        super().__init__(os_path=os_path)
-        self.comm = Communicator()
-        self._callbacks['rec_info'] = lambda x: self.update_rec_info(x)
-        self._callbacks.update(self._callbacks)
+        super().__init__()
+        self.key = dict()
+        self.filename = ''
+        self.base_folder = ''
+        self.timer = Timer()
+        self.running = False
+        self.rec_info = dict()
+        self.register_callback(dict(rec_info=self.update_rec_info))  # function to update the recording information
+
         if os.name == 'nt':
             #Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
             Popen('python Y:/manolis/github/Experiments/Imager/Imager.py', cwd='Y:/manolis/github/Experiments', shell=True)
         else:
             Popen('sh Imager.sh', cwd='../', shell=True)
-
-            #self._callbacks['connected'](True)
-    def register_callback(self, key):
-        print('updating ', key)
-        self._callbacks.update(key)
-        self.comm.register_callback(key)
-        print(self._callbacks)
+            #
 
     def start(self):
-        self.comm.send('start')
+        self.send('start')
 
     def stop(self):
-        self.comm.send('stop')
-
-    #def update_key(self, key):
-    #    self.send(key)
+        self.send('stop')
 
     def get_rec_info(self, rec_idx):
         self.update_rec_info(dict(rec_idx=rec_idx))

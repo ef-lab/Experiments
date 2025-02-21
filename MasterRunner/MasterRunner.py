@@ -31,15 +31,14 @@ class Runner(QtWidgets.QWidget):
         self.copier.run()
         self.timer = Timer()
         self.main_timer = Timer()
-        self.recorder = Recorder()
-
+        self.recorder = Recorder()  # init default recorder, this gets overridden once a recorder has been connected
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
         self.ui.start_button.clicked.connect(self.start)
         self.ui.stop_button.clicked.connect(self.stop)
         self.ui.abort_button.clicked.connect(self.abort)
         self.ui.insert_button.clicked.connect(self.insert_note)
-        self.ui.software_run.clicked.connect(self.start_recorder)
+        self.ui.software_run.clicked.connect(self.start_recorder)  # callback for recorder start
         self.ui.user.addItems(self.common.User().fetch('user_name'))
         self.ui.anesthesia.addItems(self.logger.get(table='AnesthesiaType', fields=['anesthesia'], schema='recording'))
         self.ui.surgery_type.addItems(self.logger.get(table='SurgeryType', fields=['surgery'], schema='mice'))
@@ -82,6 +81,43 @@ class Runner(QtWidgets.QWidget):
         self.ui.setup.addItems(['local'] + list(self.logger.get(table='Control', fields=['setup'], schema='experiment',
                                                key={'status': 'ready'})))
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
+
+    def report(self, message):
+        print(message)
+
+    def update_animal_id(self):
+        try:
+            self.animal_id = int(self.ui.animal_input.text())
+        except ValueError:
+            print("Animal ID does not contain a number!")
+            return
+
+        self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
+        last_session = self.logger._get_last_session()
+        self.ui.session_id.setText(str(last_session))
+        self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
+        self.update_sessions()
+
+    def update_setup(self):
+        self.setup_name = self.ui.setup.currentText()
+        if self.setup_name != 'local':
+            self.logger.setup = self.setup_name
+
+    def start_recorder(self):
+        if self.ui.software.currentText() == 'ScanImage':
+            self.recorder = ScanImage()
+            self.recorder.register_callback(dict(message=self._message))
+        elif self.ui.software.currentText() == 'Imager':
+            self.recorder = Imager(os_path=os_path)
+
+        if self.recorder:
+            print('recorder running!')
+            self.recorder.register_callback(dict(connected=self.ui.connect_indicator.setDown,
+                                                 started=self.set_rec_info,
+                                                 stopped=self.stop_rec,
+                                                 report=self.report,
+                                                 abort=self.abort,
+                                                 recording=self.ui.recording_indicator.setDown))
 
     def set_rec_info(self, key):
         self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
@@ -129,43 +165,6 @@ class Runner(QtWidgets.QWidget):
         except:
             print('rec error!')
             self.ui.error_indicator.setDown(True); self.abort()
-
-    def report(self, message):
-        print(message)
-
-    def update_animal_id(self):
-        try:
-            self.animal_id = int(self.ui.animal_input.text())
-        except ValueError:
-            print("Animal ID does not contain a number!")
-            return
-
-        self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
-        last_session = self.logger._get_last_session()
-        self.ui.session_id.setText(str(last_session))
-        self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
-        self.update_sessions()
-
-    def update_setup(self):
-        self.setup_name = self.ui.setup.currentText()
-        if self.setup_name != 'local':
-            self.logger.setup = self.setup_name
-
-    def start_recorder(self):
-        if self.ui.software.currentText() == 'ScanImage':
-            self.recorder = ScanImage()
-            self.recorder.register_callback(dict(message=self._message))
-        elif self.ui.software.currentText() == 'Imager':
-            self.recorder = Imager(os_path=os_path)
-
-        if self.recorder:
-            print('recorder running!')
-            self.recorder.register_callback(dict(connected=self.ui.connect_indicator.setDown,
-                                                 started=self.set_rec_info,
-                                                 stopped=self.stop_rec,
-                                                 report=self.report,
-                                                 abort=self.abort,
-                                                 recording=self.ui.recording_indicator.setDown))
 
     def run_task(self, task):
         if self.setup_name == 'local':

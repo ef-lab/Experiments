@@ -7,6 +7,7 @@ from ExpUtils.TriggerObject import TriggerObject
 
 socket.setdefaulttimeout(60)
 
+
 class Connector:
     def __init__(self, host, port, timeout=1):
         self.host = host
@@ -93,7 +94,7 @@ class Communicator:
                     #print('Trying to connect')
                     self.connected.value = self.tcp.connect()
                 else:
-                    # read available messages and put them in a queque
+                    # read available messages and put them in a queue if not recognized as callback functions
                     message = self.tcp.receive()
                     if message:
                         if not any(x in self._callbacks for x in message):
@@ -106,8 +107,7 @@ class Communicator:
                             for key in message:
                                 if key in self._callbacks:
                                     print('message: ', key, message)
-                                    self._callbacks[key](message)
-                    
+                                    self._callbacks[key](message[key])  # evaluate callback function with the field
                      # send queued messages
                     if not self.sendQ.empty():
                         message = self.sendQ.get()

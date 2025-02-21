@@ -49,7 +49,7 @@ class Imager(QtWidgets.QWidget):
         self.conn.register_callback(dict(start=self.start_rec))
         self.conn.register_callback(dict(stop=self.stop_rec))
         self.conn.register_callback(dict(basename=self.set_basename))
-        self.conn.send('connected')
+        self.conn.send(dict(connected=True))
 
     def set_basename(self, key):
         self.basename = key['basename']
