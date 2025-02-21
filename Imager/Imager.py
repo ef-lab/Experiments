@@ -97,7 +97,6 @@ class Imager(QtWidgets.QWidget):
     def updateplot(self):
         if not self.queue.empty():
             item = self.queue.get()
-            #print(np.max(np.max(item)))
             image = QImage(item, self.cam.width, self.cam.height, QImage.Format_Indexed8)
             image.setColorTable(self.color_table)
             self.scene.clear()

@@ -25,6 +25,7 @@ class Camera:
         self.time = 0
         self.reported_framerate = 0
         self.recording = False
+        self.bit_depth = 16
 
     def setup(self):
         self.cam_queue = Queue()
@@ -37,6 +38,7 @@ class Camera:
 
     def set_queue(self, queue):
         self.process_queue = queue
+        #self.process_queue = Queue()
 
     def start(self):
         self.thread_runner.start()
@@ -85,8 +87,10 @@ class Camera:
                 #print(cam_queue.qsize())
                 self.reported_framerate = 1/(item['timestamps'] - self.time)
                 self.time = item['timestamps']
-                self.process_queue.put(numpy.uint8(item['frames']/65000*255))
+                v = numpy.uint8(item['frames']*255/pow(2, self.bit_depth))
+                self.process_queue.put(v)
                 #self.process_queue.put(numpy.uint8(item['frames']))
+
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -526,7 +530,7 @@ class ThorCam(Camera):
 
         self.width = self.camera.sensor_width_pixels
         self.height = self.camera.sensor_height_pixels
-        #self.camera.bit_depth = 16
+        self.bit_depth = self.camera.bit_depth
         self.dtype = numpy.uint16
         self.set_gain(0)
         self.max_exposure = 1000000/self.fps*0.95
@@ -597,7 +601,6 @@ class ThorCam(Camera):
         self.camera.issue_software_trigger()
         self.pause.clear()
 
-
     def capture(self, q, stream):
         while not self.capture_end.is_set():
             if not self.pause.is_set():
@@ -610,6 +613,7 @@ class ThorCam(Camera):
                         item['frames'] = dat
                         q.put(item)
                 except:
+                    print('no received frame!')
                     pass
 
     def quit(self):
