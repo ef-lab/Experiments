@@ -158,9 +158,11 @@ class Runner(QtWidgets.QWidget):
                 self.rec_info['source_path'] = folders[-1]
 
             if self.rec_info['source_path']:
-                self.logger.log('Recording', data=self.rec_info, schema='recording')
+                self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
                 self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
                 self.set_rec_status(True)
+            else:
+                self.report('Recording source path not found!')
 
         except:
             print('rec error!')
@@ -181,7 +183,8 @@ class Runner(QtWidgets.QWidget):
         self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1)
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
         rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-        self.rec_info['rec_idx'] = rec_idx
+        self.set_rec_info(dict(rec_idx=rec_idx, **self.session_key))
+        self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
         self.recorder.update_rec_info(dict(rec_idx=rec_idx))
         if self.state == 'ready':
             if self.ui.software.currentText() == 'OpenEphys':
