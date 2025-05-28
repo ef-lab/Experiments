@@ -4,8 +4,6 @@ import numpy as np
 from ExpUtils.Writer import Writer
 from queue import Queue
 from importlib import import_module
-from windows_setup import configure_path
-configure_path()
 
 class Camera:
     def __init__(self, shape=(600, 600)):
@@ -496,6 +494,7 @@ class WebCam(Camera):
 
 class ThorCam(Camera):
     def __init__(self, shape=(600, 600)):
+        self._configure_path()
         self.thorcam = import_module("thorlabs_tsi_sdk")
         self.camera = []
         self.stream = []
@@ -608,6 +607,26 @@ class ThorCam(Camera):
                 except:
                     print('no received frame!')
                     pass
+
+    def _configure_path(self):
+        is_64bits = sys.maxsize > 2 ** 32
+        relative_path_to_dlls = '.' + os.sep + 'dlls' + os.sep
+
+        if is_64bits:
+            relative_path_to_dlls += '64_lib'
+        else:
+            relative_path_to_dlls += '32_lib'
+
+        absolute_path_to_file_directory = os.path.dirname(os.path.abspath(__file__))
+
+        absolute_path_to_dlls = os.path.abspath(absolute_path_to_file_directory + os.sep + relative_path_to_dlls)
+        os.environ['PATH'] = absolute_path_to_dlls + os.pathsep + os.environ['PATH']
+
+        try:
+            # Python 3.8 introduces a new method to specify dll directory
+            os.add_dll_directory(absolute_path_to_dlls)
+        except AttributeError:
+            pass
 
     def quit(self):
         print('quiting...')
