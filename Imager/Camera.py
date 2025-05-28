@@ -495,7 +495,7 @@ class WebCam(Camera):
 class ThorCam(Camera):
     def __init__(self, shape=(600, 600)):
         self._configure_path()
-        self.thorcam = import_module("thorlabs_tsi_sdk")
+        #self.thorcam = import_module("thorlabs_tsi_sdk")
         self.camera = []
         self.stream = []
         self.fps = 10
@@ -510,7 +510,9 @@ class ThorCam(Camera):
         self.recording = False
 
     def setup_camera(self):
-        self.sdk = self.thorcam.tl_camera.TLCameraSDK()
+        from thorlabs_tsi_sdk import tl_camera
+        self.sdk = tl_camera.TLCameraSDK()
+        #self.sdk = self.thorcam.tl_camera.TLCameraSDK()
         available_cameras = self.sdk.discover_available_cameras()
         if len(available_cameras) < 1:
             print("no cameras detected")
