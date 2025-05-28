@@ -6,12 +6,13 @@ from pathlib import Path
 os_path = str(Path.home())
 os_path += '/GitHub/' if os.name == 'nt' else '/github/'
 sys.path.append(os_path + 'EthoPy')
+#sys.path.append('Y:\manolis\github\EthoPy')
 sys.path.append(os_path + 'lab/python')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))))
 
 from ExpUtils.Recorder import *
 from ExpUtils.Copier import *
-from utils.Timer import *
+from ExpUtils.Timer import *
 from utils.helper_functions import *
 from core.Logger import *
 import common as common
@@ -126,6 +127,7 @@ class Runner(QtWidgets.QWidget):
         self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
 
     def log_rec(self):
+
         if self.rec_info['software'] != 'None':
             self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
             target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
@@ -133,40 +135,48 @@ class Runner(QtWidgets.QWidget):
                                        datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
             self.rec_info = {'source_path': '', **self.rec_info, **self.session_key,
                              'target_path': target_path}
+
+            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
+            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+            self.recorder.sess_tmst = self.sess_tmst
+            self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
+            self.set_rec_info(dict(**self.recorder.get_rec_info(rec_idx), **self.session_key))
+            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
+
             self.rec_thread = threading.Thread(target=self._log_rec_())
             self.rec_thread.start()
 
     def _log_rec_(self):
-        try:
-            if self.rec_info['software'] == 'Miniscope':
-                date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
-                self.rec_info['version'] = '1.10'
-                self.timer.start()
-                while not self.rec_info['source_path']:  # waiting for recording to start
-                    folders = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-                    if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
-                    self.rec_info['source_path'] = folders[-1]
-                    if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
-                    if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
-            elif self.rec_info['software'] == 'OpenEphys':
-                date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
-                self.rec_info['version'] = '0.5.4'
-                #self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-                # if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
-                folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-                if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
+        #try:
+        if self.rec_info['software'] == 'Miniscope':
+            date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
+            self.rec_info['version'] = '1.10'
+            self.timer.start()
+            while not self.rec_info['source_path']:  # waiting for recording to start
+                folders = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
+                if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
                 self.rec_info['source_path'] = folders[-1]
+                if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
+                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
+        elif self.rec_info['software'] == 'OpenEphys':
+            date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
+            self.rec_info['version'] = '0.5.4'
+            #self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+            # if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
+            folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+            if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
+            self.rec_info['source_path'] = folders[-1]
 
-            if self.rec_info['source_path']:
-                self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
-                self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
-                self.set_rec_status(True)
-            else:
-                self.report('Recording source path not found!')
+        if self.rec_info['source_path']:
+            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
+            self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
+            self.set_rec_status(True)
+        else:
+            self.report('Recording source path not found!')
 
-        except:
-            print('rec error!')
-            self.ui.error_indicator.setDown(True); self.abort()
+        #except:
+        #    print('rec error!')
+        #    self.ui.error_indicator.setDown(True); self.abort()
 
     def run_task(self, task):
         if self.setup_name == 'local':
@@ -177,21 +187,19 @@ class Runner(QtWidgets.QWidget):
                                           dict(setup=self.setup_name))
 
     def start(self):
+        if self.state != 'ready':
+            self.report('Already started!')
+            return
         self.ui.error_indicator.setDown(False)
         self.update_setup()
         self.update_animal_id()
         self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1)
-        recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-        rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-        self.set_rec_info(dict(rec_idx=rec_idx, **self.session_key))
-        self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
-        self.recorder.update_rec_info(dict(rec_idx=rec_idx))
-        if self.state == 'ready':
-            if self.ui.software.currentText() == 'OpenEphys':
-                self._message('Start OpenEphys Recording!')
+        if self.ui.software.currentText() == 'OpenEphys':
+            self._message('Start OpenEphys Recording!')
+            self.recorder = OpenEphys()
             time.sleep(1)
-            self.start_thread = threading.Thread(target=self._start)
-            self.start_thread.start()
+        self.start_thread = threading.Thread(target=self._start)
+        self.start_thread.start()
 
     def _start(self):
         #try:
@@ -216,10 +224,14 @@ class Runner(QtWidgets.QWidget):
             self.logger.thread_lock.release()
         else:
             self.logger.log_session(dict(user=self.ui.user.currentText()))
+        time.sleep(2)
+
+        self.log_rec()
 
         # start the experiment
         #if self.ui.software.currentText() in ['ScanImage', 'Thorcam']:
         #    self._message('Start Recorder!')
+
         self.recorder.start()
         self.timer.start()
         while self.ui.connect_indicator.isDown() and not self.rec_started:
@@ -229,8 +241,7 @@ class Runner(QtWidgets.QWidget):
                 self.ui.error_indicator.setDown(True); self.abort(); return
 
         self.logger.update_setup_info(dict(status='operational', animal_id=self.animal_id),
-                                      dict(setup=self.setup_name))
-
+                                      dict(setup=self.logger.setup))
 
         self.ui.running_indicator.setDown(True)
         self.ui.session_id.setText(str(self.session_key['session']))
@@ -245,7 +256,7 @@ class Runner(QtWidgets.QWidget):
             self.report('Filename not set! Check recorder status... ')
             self.ui.error_indicator.setDown(True)
             self.abort()
-        self.log_rec()
+
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
                             data={**self.session_key,'rec_idx':self.rec_info['rec_idx'],
@@ -260,26 +271,25 @@ class Runner(QtWidgets.QWidget):
         #    self.abort()
 
     def stop_rec(self, *args):
-        self.set_rec_status(False)
         if self.rec_started and self.ui.autocopy.checkState():
-            source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename'])
+            source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename']).replace("\\", "/")
             if os.path.isfile(source_file) or os.path.isdir(source_file):
                 self.copy_file(source_file, self.rec_info['filename'])
             else:
                 pattern = re.compile(self.rec_info['filename'] + ".*")
                 for filepath in os.listdir(self.rec_info['source_path']):
-                    source_file = os.path.join(self.rec_info['source_path'], filepath)
+                    source_file = os.path.join(self.rec_info['source_path'], filepath).replace("\\", "/")
                     if pattern.match(filepath):
                         self.copy_file(source_file, filepath)
+        self.set_rec_status(False)
 
     def copy_file(self,source_file, target_file):
-        target_file = os.path.join(self.rec_info['target_path'], target_file)
+        target_file = os.path.join(self.rec_info['target_path'], target_file).replace("\\", "/")
         self.report('Copying %s to %s' % (source_file, target_file))
         self.copier.append(source_file, target_file)
 
     def stop(self):
         if self.state in {'running', 'starting'}:
-            print('Stopping setup ', self.logger.setup)
             if self.logger.get_setup_info('status') == 'running':
                 self.logger.update_setup_info(dict(status='stop', animal_id=self.animal_id),
                                               dict(setup=self.setup_name))
@@ -296,7 +306,6 @@ class Runner(QtWidgets.QWidget):
                     time.sleep(.1)
             self.stop_thread = threading.Thread(target=self._stop)
             self.stop_thread.start()
-
 
     def _stop(self):
         self.state = 'stopping'
@@ -361,7 +370,7 @@ class Runner(QtWidgets.QWidget):
 
     def update_task(self):
         if self.ui.task.value():
-            protocol = self.logger.get(table='Task', fields=['protocol'],
+            protocol = self.logger.get(table='Task', fields=['task'],
                                        schema='experiment', key={'task_idx': self.ui.task.value()})
             if protocol:
                 path, filename = os.path.split(protocol[0])

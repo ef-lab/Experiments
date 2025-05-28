@@ -4,8 +4,6 @@ import numpy as np
 from ExpUtils.Writer import Writer
 from queue import Queue
 from importlib import import_module
-
-from thorlabs_tsi_sdk.tl_camera import TLCameraSDK, OPERATION_MODE
 from windows_setup import configure_path
 configure_path()
 
@@ -25,7 +23,7 @@ class Camera:
         self.time = 0
         self.reported_framerate = 0
         self.recording = False
-        self.bit_depth = 16
+        self.bit_depth = 10
 
     def setup(self):
         self.cam_queue = Queue()
@@ -87,10 +85,9 @@ class Camera:
                 #print(cam_queue.qsize())
                 self.reported_framerate = 1/(item['timestamps'] - self.time)
                 self.time = item['timestamps']
-                v = numpy.uint8(item['frames']*255/pow(2, self.bit_depth))
+                v = numpy.uint8(item['frames']/4)#255/pow(2, self.bit_depth))
                 self.process_queue.put(v)
                 #self.process_queue.put(numpy.uint8(item['frames']))
-
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
@@ -129,8 +126,6 @@ class AravisCam(Camera):
         #self.camera.set_binning(1, 1)
         self.camera.set_region(180, 0, shape[0], shape[1])
         xbin, ybin = self.camera.get_binning()
-        print(shape)
-        print(xbin)
         self.reported_framerate = 0
         #self.camera.set_binning(1, 2)
         #self.camera.set_binning(1, 1)
@@ -501,6 +496,7 @@ class WebCam(Camera):
 
 class ThorCam(Camera):
     def __init__(self, shape=(600, 600)):
+        self.thorcam = import_module("thorlabs_tsi_sdk")
         self.camera = []
         self.stream = []
         self.fps = 10
@@ -515,9 +511,7 @@ class ThorCam(Camera):
         self.recording = False
 
     def setup_camera(self):
-        #thorcam = import_module("thorlabs_tsi_sdk")
-        #sdk = thorcam.tl_camera.TLCameraSDK()
-        self.sdk = TLCameraSDK()
+        self.sdk = self.thorcam.tl_camera.TLCameraSDK()
         available_cameras = self.sdk.discover_available_cameras()
         if len(available_cameras) < 1:
             print("no cameras detected")
@@ -530,7 +524,7 @@ class ThorCam(Camera):
 
         self.width = self.camera.sensor_width_pixels
         self.height = self.camera.sensor_height_pixels
-        self.bit_depth = self.camera.bit_depth
+        #self.bit_depth = self.camera.bit_depth
         self.dtype = numpy.uint16
         self.set_gain(0)
         self.max_exposure = 1000000/self.fps*0.95
@@ -564,7 +558,6 @@ class ThorCam(Camera):
             exposure_time = np.minimum(exposure_prc, self.max_exposure)
         else:
             exposure_time = self.max_exposure*exposure_prc/100
-        print('Setting exposure to %d ms' % exposure_time)
         self.exposure_time = int(exposure_time)  # in microseconds
         self.camera.exposure_time_us = self.exposure_time
         #if armed:

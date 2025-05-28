@@ -51,8 +51,8 @@ class Imager(QtWidgets.QWidget):
         self.conn.register_callback(dict(basename=self.set_basename))
         self.conn.send(dict(connected=True))
 
-    def set_basename(self, key):
-        self.basename = key['basename']
+    def set_basename(self, basename):
+        self.basename = basename
 
     def start_rec(self, *args):
         self.ui.rec_button.setDown(True)

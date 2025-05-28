@@ -2,7 +2,7 @@ import os, time, threading
 from datetime import datetime
 from subprocess import Popen
 from ExpUtils.Communicator import Communicator
-from utils.Timer import *
+from ExpUtils.Timer import *
 if os.getlogin() == 'ScanImage':
     import matlab.engine
 
@@ -17,6 +17,7 @@ class Recorder:
         self.rec_info = dict()
         self._callbacks = dict()
         self.register_callback(callbacks)
+        self.sess_tmst = 0
 
     def start(self):
         pass
@@ -29,6 +30,9 @@ class Recorder:
 
     def update_key(self, key):
         self.key.update(key)
+
+    def set_basename(self, key):
+        pass
 
     def update_rec_info(self, rec_info):
         self.rec_info.update(rec_info)
@@ -43,6 +47,24 @@ class Recorder:
         pass
 
 
+class OpenEphys(Recorder):
+    def __init__(self, os_path=''):
+        super().__init__()
+        self.version = '0.5.4'
+
+    def get_rec_info(self, rec_idx):
+        date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
+        folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+                   if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst - timedelta(
+                seconds=20)]
+
+        return dict(source_path=folders[-1],
+                    filename=self.filename,
+                    software='OpenEphys',
+                    version=self.version,
+                    rec_idx=rec_idx)
+
+
 class Imager(Communicator, Recorder):
     def __init__(self, os_path=''):
         super().__init__()
@@ -51,7 +73,7 @@ class Imager(Communicator, Recorder):
         self.base_folder = ''
         self.timer = Timer()
         self.running = False
-        self.rec_info = dict()
+        self.rec_info = dict(software='Imager', version='0.1')
         self.register_callback(dict(rec_info=self.update_rec_info))  # function to update the recording information
 
         if os.name == 'nt':
@@ -63,12 +85,21 @@ class Imager(Communicator, Recorder):
 
     def start(self):
         self.send('start')
+        self.running = True
 
     def stop(self):
         self.send('stop')
+        print('Stopping Imager')
+        self._callbacks['stopped']()
+        self.running = False
+
+    def set_basename(self, basename):
+        self.send(dict(basename=basename))
 
     def get_rec_info(self, rec_idx):
-        self.update_rec_info(dict(rec_idx=rec_idx))
+        self.update_rec_info(dict(rec_idx=rec_idx, source_path='F:/Imager/'))
+        self._callbacks['set_rec_info'](self.rec_info)
+        self._callbacks['recording'](True)
         return self.rec_info
 
 
