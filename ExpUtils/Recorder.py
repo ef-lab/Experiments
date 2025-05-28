@@ -77,8 +77,8 @@ class Imager(Communicator, Recorder):
         self.register_callback(dict(rec_info=self.update_rec_info))  # function to update the recording information
 
         if os.name == 'nt':
-            #Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
-            Popen('python Y:/manolis/github/Experiments/Imager/Imager.py', cwd='Y:/manolis/github/Experiments', shell=True)
+            Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
+            #Popen('python Y:/manolis/github/Experiments/Imager/Imager.py', cwd='Y:/manolis/github/Experiments', shell=True)
         else:
             Popen('sh Imager.sh', cwd='../', shell=True)
             #
