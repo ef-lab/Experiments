@@ -34,7 +34,6 @@ class Camera:
 
     def set_queue(self, queue):
         self.process_queue = queue
-        #self.process_queue = Queue()
 
     def start(self):
         self.thread_runner.start()
@@ -48,8 +47,7 @@ class Camera:
             filename = '%s_%s.h5' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
             print('Starting the recording of %s' % filename)
             self.saver = Writer(filename)
-            #self.saver.datasets.createDataset('frames', shape=(self.width, self.height, 1), dtype=self.dtype)
-            self.saver.datasets.createDataset('frames', shape=(self.width, self.height), dtype=self.dtype)
+            self.saver.datasets.createDataset('frames', shape=(self.height, self.width), dtype=self.dtype)
             self.saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
             self.iframe = 0
             self.save.set()
@@ -80,19 +78,17 @@ class Camera:
                     self.saver.append('frames', item['frames'])
                 if self.process_queue.full():
                     self.process_queue.get()
-                #print(cam_queue.qsize())
                 self.reported_framerate = 1/(item['timestamps'] - self.time)
                 self.time = item['timestamps']
                 v = numpy.uint8(item['frames']/4)#255/pow(2, self.bit_depth))
                 self.process_queue.put(v)
-                #self.process_queue.put(numpy.uint8(item['frames']))
 
     def capture(self, namespace):
         while not self.capture_end.is_set():
             item = dict()
             #img = numpy.uint8(numpy.minimum(self.img*namespace.scale,numpy.ones(numpy.shape(self.img))*255))
             #img = numpy.uint8(numpy.multiply(self.img, numpy.random.random(numpy.shape(self.img)) * namespace.scale))
-            img = numpy.uint8(numpy.random.random((self.width, self.height)) * namespace.scale)
+            img = numpy.uint8(numpy.random.random((self.height, self.width)) * namespace.scale)
             item['frames'] = img[:, :, numpy.newaxis]
             item['timestamps'] = time.time()
             self.cam_queue.put(item)
@@ -309,7 +305,7 @@ class SpinCam(Camera):
                     if image:
                         item = dict()
                         im = image.GetNDArray()
-                        dat = numpy.ndarray(buffer=im, dtype=self.dtype, shape=(1, self.width, self.height))
+                        dat = numpy.ndarray(buffer=im, dtype=self.dtype, shape=(1, self.height, self.width))
                         item['frames'] = dat
                         item['timestamps'] = time.time()
                         q.put(item)
@@ -603,7 +599,7 @@ class ThorCam(Camera):
                     if frame is not None:
                         item = dict()
                         item['timestamps'] = time.time()
-                        dat = numpy.ndarray(buffer=frame.image_buffer, dtype=self.dtype, shape=(self.width, self.height))
+                        dat = numpy.ndarray(buffer=frame.image_buffer, dtype=self.dtype, shape=(self.height, self.width))
                         item['frames'] = dat
                         q.put(item)
                 except:
