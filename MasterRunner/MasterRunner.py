@@ -151,10 +151,12 @@ class Runner(QtWidgets.QWidget):
 
     def _start(self):
         #try:
+        # Initialize indicators:
         self.state = 'starting'
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Starting...")
 
+        #
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
             self.timer.start()
@@ -180,19 +182,19 @@ class Runner(QtWidgets.QWidget):
         #if self.ui.software.currentText() in ['ScanImage', 'Thorcam']:
         #    self._message('Start Recorder!')
 
+        # start recording
         self.recorder.start()
         self.timer.start()
-        while self.ui.connect_indicator.isDown() and not self.rec_started:
+        while self.ui.connect_indicator.isDown() and not self.rec_started: # wait until recording starts
             time.sleep(.1)
             if self.timer.elapsed_time() > 10000:
                 self.report('Recording problem, Aborting')
                 self.ui.error_indicator.setDown(True); self.abort(); return
 
+        # start stimulus
         self.logger.update_setup_info(dict(status='operational', animal_id=self.animal_id),
                                       dict(setup=self.logger.setup))
 
-        self.ui.running_indicator.setDown(True)
-        self.ui.session_id.setText(str(self.session_key['session']))
         # set recording info
         if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
             self.set_rec_info(dict(started=True, filename='', software=self.ui.software.currentText()))
@@ -205,10 +207,15 @@ class Runner(QtWidgets.QWidget):
             self.ui.error_indicator.setDown(True)
             self.abort()
 
+        # log anesthesia if used
         if self.ui.anesthesia.currentText() != 'none':
             self.logger.log('Recording.Anesthetized', schema='recording',
-                            data={**self.session_key,'rec_idx':self.rec_info['rec_idx'],
+                            data={**self.session_key, 'rec_idx': self.rec_info['rec_idx'],
                                   'anesthesia': self.ui.anesthesia.currentText()})
+
+        # update info fields
+        self.ui.running_indicator.setDown(True)
+        self.ui.session_id.setText(str(self.session_key['session']))
         self.ui.start_button.setText("Running")
         self.report('Experiment started')
         self.state = 'running'
