@@ -126,58 +126,6 @@ class Runner(QtWidgets.QWidget):
     def set_rec_info(self, key):
         self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
 
-    def log_rec(self):
-
-        if self.rec_info['software'] != 'None':
-            self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
-            target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
-                                       '_' + str(self.session_key['session']) + '_' + str(self.rec_info['rec_idx']) + '_' +
-                                       datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
-            self.rec_info = {'source_path': '', **self.rec_info, **self.session_key,
-                             'target_path': target_path}
-
-            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-            self.recorder.sess_tmst = self.sess_tmst
-            self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
-            self.set_rec_info(dict(**self.recorder.get_rec_info(rec_idx), **self.session_key))
-            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
-
-            self.rec_thread = threading.Thread(target=self._log_rec_())
-            self.rec_thread.start()
-
-    def _log_rec_(self):
-        #try:
-        if self.rec_info['software'] == 'Miniscope':
-            date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
-            self.rec_info['version'] = '1.10'
-            self.timer.start()
-            while not self.rec_info['source_path']:  # waiting for recording to start
-                folders = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-                if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
-                self.rec_info['source_path'] = folders[-1]
-                if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
-                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
-        elif self.rec_info['software'] == 'OpenEphys':
-            date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
-            self.rec_info['version'] = '0.5.4'
-            #self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-            # if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
-            folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-            if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
-            self.rec_info['source_path'] = folders[-1]
-
-        if self.rec_info['source_path']:
-            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
-            self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
-            self.set_rec_status(True)
-        else:
-            self.report('Recording source path not found!')
-
-        #except:
-        #    print('rec error!')
-        #    self.ui.error_indicator.setDown(True); self.abort()
-
     def run_task(self, task):
         if self.setup_name == 'local':
             self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
@@ -269,6 +217,65 @@ class Runner(QtWidgets.QWidget):
         #    print('start error!')
         #    self.ui.error_indicator.setDown(True)
         #    self.abort()
+
+    def log_rec(self):
+
+        if self.ui.software.currentText() != 'None':  # check if recorder is selected
+            # SET REC IDX
+            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
+            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+
+            # get session tmst
+            self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
+
+            # set target path
+            target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
+                                       '_' + str(self.session_key['session']) + '_' + str(self.rec_info['rec_idx']) + '_' +
+                                       datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
+
+            # define rec_info
+            self.rec_info = {'source_path': '', **self.rec_info, **self.session_key,
+                             'target_path': target_path}
+
+            self.recorder.sess_tmst = self.sess_tmst
+            self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
+            self.set_rec_info(dict(**self.recorder.get_rec_info(rec_idx), **self.session_key))
+            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
+
+            self.rec_thread = threading.Thread(target=self._log_rec_())
+            self.rec_thread.start()
+
+    def _log_rec_(self):
+        #try:
+        if self.rec_info['software'] == 'Miniscope':
+            date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
+            self.rec_info['version'] = '1.10'
+            self.timer.start()
+            while not self.rec_info['source_path']:  # waiting for recording to start
+                folders = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
+                if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
+                self.rec_info['source_path'] = folders[-1]
+                if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
+                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
+        elif self.rec_info['software'] == 'OpenEphys':
+            date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
+            self.rec_info['version'] = '0.5.4'
+            #self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+            # if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
+            folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
+            if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
+            self.rec_info['source_path'] = folders[-1]
+
+        if self.rec_info['source_path']:
+            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
+            self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
+            self.set_rec_status(True)
+        else:
+            self.report('Recording source path not found!')
+
+        #except:
+        #    print('rec error!')
+        #    self.ui.error_indicator.setDown(True); self.abort()
 
     def stop_rec(self, *args):
         if self.rec_started and self.ui.autocopy.checkState():
