@@ -119,7 +119,6 @@ class Imager(Communicator, Recorder):
     def stop(self):
         self.send('stop')
         print('Stopping Imager')
-        self._callbacks['stopped']()
         self.running = False
 
     def set_basename(self, basename):

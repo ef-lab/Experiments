@@ -67,6 +67,7 @@ class Imager(QtWidgets.QWidget):
     def stop_rec(self, *args):
         self.ui.rec_button.setDown(False)
         self.cam.stop()
+
         self.conn.send(dict(stopped=True))
 
     def updateFPS(self):

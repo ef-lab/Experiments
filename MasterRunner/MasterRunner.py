@@ -54,7 +54,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
         self.ui.stim_refresh.clicked.connect(self.update_setups)
         self.update_setups()
-        self.update_sessions()
+        self.refresh_sessions()
         self.state = 'ready'
         self.report('Ready')
 
@@ -113,11 +113,11 @@ class Runner(QtWidgets.QWidget):
             table.update1(self.session_key)
             self.logger.thread_lock.release()
         else:
-            self.logger.log_session(dict(user=self.ui.user.currentText()))
+            self.logger.log_session(dict(user=self.ui.user.currentText(), setup_conf_idx=0))
         time.sleep(2)
 
-        # Log recording and get rec_idx
-        self.log_rec()
+        if self.ui.software.currentText() != 'None':  # check if recorder is selected
+            self.log_rec()  # Log recording and get rec_idx
 
         # start recording
         self.recorder.start()
@@ -156,55 +156,34 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setText("Running")
         self.report('Experiment started')
         self.state = 'running'
-        self.update_sessions()
+        self.refresh_sessions()
 
     def log_rec(self):
+        # SET REC IDX
+        recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
+        rec_idx = 1 if not recs.size > 0 else max(recs) + 1
 
-        if self.ui.software.currentText() != 'None':  # check if recorder is selected
-            # SET REC IDX
-            recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-            rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+        # get session tmst
+        self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
 
-            # get session tmst
-            self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
+        # set target path
+        target_path = os.path.join(self.targetpath, self.recorder.software, str(self.session_key['animal_id']) +
+                                   '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
+                                   datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
 
-            # set target path
-            target_path = os.path.join(self.targetpath, self.recorder.software, str(self.session_key['animal_id']) +
-                                       '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
-                                       datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
-
-            # define rec_info
-            self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
-                             'source_path': self.logger.source_path + self.recorder.software + '/'}
-
-            self.recorder.sess_tmst = self.sess_tmst
-            self.recorder.set_basepath(self.rec_info['source_path'])
-            self.recorder.set_basename(self.rec_info['source_path'] + str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
-            self._log_rec_(priority=1)
+        # define rec_info
+        self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
+                         'source_path': self.logger.source_path + self.recorder.software + '/'}
+        self.recorder.sess_tmst = self.sess_tmst
+        self.recorder.set_basepath(self.rec_info['source_path'])
+        self.recorder.set_basename(self.rec_info['source_path'] + str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
+        self._log_rec_(priority=1)
 
     def _log_rec_(self, priority=3):
         rec_info = self.recorder.get_rec_info(self.rec_info)
         if rec_info:
             rec_info = self.set_rec_info(rec_info)
             self.logger.log('Recording', data=rec_info, schema='recording', replace=True, priority=priority)
-
-    def stop_rec(self, *args):
-        if self.rec_started and self.ui.autocopy.checkState():
-            source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename']).replace("\\", "/")
-            if os.path.isfile(source_file) or os.path.isdir(source_file):
-                self.copy_file(source_file, self.rec_info['filename'])
-            else:
-                pattern = re.compile(self.rec_info['filename'] + ".*")
-                for filepath in os.listdir(self.rec_info['source_path']):
-                    source_file = os.path.join(self.rec_info['source_path'], filepath).replace("\\", "/")
-                    if pattern.match(filepath):
-                        self.copy_file(source_file, filepath)
-        self.set_rec_status(False)
-
-    def copy_file(self, source_file, target_file):
-        target_file = os.path.join(self.rec_info['target_path'], target_file).replace("\\", "/")
-        self.report('Copying %s to %s' % (source_file, target_file))
-        self.copier.append(source_file, target_file)
 
     def stop(self):
         if self.state in {'running', 'starting'}:
@@ -214,10 +193,11 @@ class Runner(QtWidgets.QWidget):
                 while self.logger.get_setup_info('status') not in {'exit', 'ready'}:
                     time.sleep(.5)
             self.ui.stimulus_indicator.setDown(False)
-            if self.ui.software.currentText() == 'OpenEphys':
+            if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
                 self.copier.pause.set()
-                self._message('Stop OpenEphys Recording!')
+                self._message('Stop Recording!')
                 self.copier.pause.clear()
+                self.stop_rec()
             else:
                 self.recorder.stop()
                 while self.rec_started and self.ui.connect_indicator.isDown:
@@ -237,18 +217,13 @@ class Runner(QtWidgets.QWidget):
                                       key={'setup': self.logger.setup})[0] not in {'exit', 'ready'}:
                     time.sleep(.1)
 
-        if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
-            self.stop_rec()
-        else:
-            self.recorder.stop()
-
         self.ui.start_button.setDown(False)
         self.ui.start_button.setText("Start")
         self.ui.stop_button.setText("Stop")
         self.ui.running_indicator.setDown(False)
         self.report('Ready')
         self.state = 'ready'
-        self.update_sessions()
+        self.refresh_sessions()
 
     def abort(self):
         if self.state in {'running', 'starting'}:
@@ -280,6 +255,24 @@ class Runner(QtWidgets.QWidget):
         elif self.ui.software.currentText() == 'Imager':
             self.recorder = Imager(os_path=os_path)
             self.recorder.register_callback(callbacks)
+
+    def stop_rec(self, *args):
+        if self.rec_started and self.ui.autocopy.checkState():
+            source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename']).replace("\\", "/")
+            if os.path.isfile(source_file) or os.path.isdir(source_file):
+                self.copy_file(source_file, self.rec_info['filename'])
+            else:
+                pattern = re.compile(self.rec_info['filename'] + ".*")
+                for filepath in os.listdir(self.rec_info['source_path']):
+                    source_file = os.path.join(self.rec_info['source_path'], filepath).replace("\\", "/")
+                    if pattern.match(filepath):
+                        self.copy_file(source_file, filepath)
+        self.set_rec_status(False)
+
+    def copy_file(self, source_file, target_file):
+        target_file = os.path.join(self.rec_info['target_path'], target_file).replace("\\", "/")
+        self.report('Copying %s to %s' % (source_file, target_file))
+        self.copier.append(source_file, target_file)
 
     def set_rec_status(self, status):
         self.rec_started = status
@@ -335,7 +328,7 @@ class Runner(QtWidgets.QWidget):
         last_session = self.logger._get_last_session()
         self.ui.session_id.setText(str(last_session))
         self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
-        self.update_sessions()
+        self.refresh_sessions()
 
     def update_setup(self):
         self.setup_name = self.ui.setup.currentText()
@@ -350,7 +343,7 @@ class Runner(QtWidgets.QWidget):
                 path, filename = os.path.split(protocol[0])
                 self.ui.task_file.setText(str(filename))
 
-    def update_sessions(self):
+    def refresh_sessions(self):
         info = ['']*5
         info[0], info[1], info[2], info[3], info[4] = \
             self.logger.get(table='Session', fields=['session', 'user_name', 'setup','experiment_type', 'session_tmst'],

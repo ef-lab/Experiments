@@ -63,6 +63,8 @@ class Camera:
             self.save.clear()
             if hasattr(self, 'saver'):
                 self.saver.exit()
+            while self.saver.writing:
+                time.sleep(0.2)
 
     def set_frame_rate(self, fps):
         self.namespace.fps = fps
