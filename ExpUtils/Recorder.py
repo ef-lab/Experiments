@@ -40,7 +40,7 @@ class Recorder:
 
     def update_rec_info(self, rec_info):
         self.rec_info.update(rec_info)
-        return rec_info
+        return self.rec_info
 
     def register_callback(self, key):
         self._callbacks.update(key) # update the dictionary with the callback functions
@@ -58,7 +58,7 @@ class Miniscope(Recorder): # UNTESTED!!!!
         self.version = '1.10'
         self.software = 'Miniscope'
 
-    def get_rec_info(self, rec_idx):
+    def get_rec_info(self, rec_info):
         date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
         self.rec_info['version'] = '1.10'
         self.timer.start()
@@ -73,7 +73,7 @@ class Miniscope(Recorder): # UNTESTED!!!!
                     filename='',
                     software=self.software,
                     version=self.version,
-                    rec_idx=rec_idx)
+                    rec_idx=rec_info['rec_idx'])
 
 
 class OpenEphys(Recorder):
