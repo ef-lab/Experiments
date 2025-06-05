@@ -173,7 +173,8 @@ class Runner(QtWidgets.QWidget):
 
         # define rec_info
         self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
-                         'source_path': self.logger.source_path + self.recorder.software + '/'}
+                         'source_path': self.logger.source_path + self.recorder.software + '/',
+                         'software': self.recorder.software}
         self.recorder.sess_tmst = self.sess_tmst
         self.recorder.set_basepath(self.rec_info['source_path'])
         self.recorder.set_basename(self.rec_info['source_path'] + str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
