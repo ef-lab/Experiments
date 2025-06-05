@@ -134,7 +134,7 @@ class Runner(QtWidgets.QWidget):
                 self.report('Recording problem, Aborting')
                 self.ui.error_indicator.setDown(True); self.abort(); return
         if self.rec_info['source_path']:
-            self.ui.file.setText(os.path.basename(self.rec_info['source_path'] + self.rec_info['filename']))
+            self.ui.file.setText(os.path.basename(self.rec_info['filename']))
             self.set_rec_status(True)
         else:
             self.report('Recording source path not found!')
