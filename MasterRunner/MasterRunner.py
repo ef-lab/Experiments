@@ -76,64 +76,6 @@ class Runner(QtWidgets.QWidget):
         if 'target_path' in config: self.targetpath = config['target_path']
         self.ui.user.setCurrentText('bot')
 
-    def update_setups(self):
-        self.ui.setup.currentIndexChanged.disconnect()
-        self.ui.setup.clear()
-        self.ui.setup.addItems(['local'] + list(self.logger.get(table='Control', fields=['setup'], schema='experiment',
-                                               key={'status': 'ready'})))
-        self.ui.setup.currentIndexChanged.connect(self.update_setup)
-
-    def report(self, message):
-        print(message)
-
-    def update_animal_id(self):
-        try:
-            self.animal_id = int(self.ui.animal_input.text())
-        except ValueError:
-            print("Animal ID does not contain a number!")
-            return
-
-        self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
-        last_session = self.logger._get_last_session()
-        self.ui.session_id.setText(str(last_session))
-        self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
-        self.update_sessions()
-
-    def update_setup(self):
-        self.setup_name = self.ui.setup.currentText()
-        if self.setup_name != 'local':
-            self.logger.setup = self.setup_name
-
-    def start_recorder(self):
-        callbacks = dict(connected=self.ui.connect_indicator.setDown,
-                         started=self.set_rec_info,
-                         stopped=self.stop_rec,
-                         report=self.report,
-                         abort=self.abort,
-                         recording=self.set_rec_status)
-
-        if self.ui.software.currentText() == 'ScanImage':
-            self.recorder = ScanImage(callbacks=callbacks)
-            self.recorder.register_callback(dict(message=self._message))
-        elif self.ui.software.currentText() == 'Imager':
-            self.recorder = Imager(os_path=os_path)
-            self.recorder.register_callback(callbacks)
-
-    def set_rec_status(self, status):
-        self.rec_started = status
-        self.ui.recording_indicator.setDown(status)
-
-    def set_rec_info(self, key):
-        self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
-
-    def run_task(self, task):
-        if self.setup_name == 'local':
-            self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
-                                      cwd=os_path+'EthoPy/', shell=True)
-        else:
-            self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
-                                          dict(setup=self.setup_name))
-
     def start(self):
         if self.state != 'ready':
             self.report('Already started!')
@@ -156,7 +98,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setDown(True)
         self.ui.start_button.setText("Starting...")
 
-        #
+        # run stimulus/behavior task otherwise just insert rec session & wait!
         if self.ui.task_check.checkState():
             self.run_task(self.ui.task.value())
             self.timer.start()
@@ -176,6 +118,7 @@ class Runner(QtWidgets.QWidget):
             self.logger.log_session(dict(user=self.ui.user.currentText()))
         time.sleep(2)
 
+        # Log recording and get rec_idx
         self.log_rec()
 
         # start the experiment
@@ -191,18 +134,15 @@ class Runner(QtWidgets.QWidget):
                 self.report('Recording problem, Aborting')
                 self.ui.error_indicator.setDown(True); self.abort(); return
 
-        # start stimulus
+        # once recording has started, only then start stimulus
         self.logger.update_setup_info(dict(status='operational', animal_id=self.animal_id),
                                       dict(setup=self.logger.setup))
 
-        # set recording info
-        if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
-            self.set_rec_info(dict(started=True, filename='', software=self.ui.software.currentText()))
-        elif self.ui.software.currentText() in ['Imager', 'ScanImage']:
-            rec_info = self.recorder.get_rec_info(rec_idx=self.rec_info['rec_idx'])
-            if rec_info:
-                self.set_rec_info(rec_info)
-        elif not self.rec_info['filename']:
+        # update recording info
+        rec_info = self.recorder.get_rec_info(rec_idx=self.rec_info['rec_idx'])
+        if rec_info:
+            self.set_rec_info(rec_info)
+        if not self.rec_info['filename'] and self.ui.software.currentText() not in ['Miniscope', 'OpenEphys']:
             self.report('Filename not set! Check recorder status... ')
             self.ui.error_indicator.setDown(True)
             self.abort()
@@ -249,40 +189,21 @@ class Runner(QtWidgets.QWidget):
             self.set_rec_info(dict(**self.recorder.get_rec_info(rec_idx), **self.session_key))
             self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
 
-            self.rec_thread = threading.Thread(target=self._log_rec_())
-            self.rec_thread.start()
+            if self.rec_info['source_path']:
+                self.ui.file.setText(os.path.basename(self.rec_info['source_path'] + self.rec_info['filename']))
+                self.set_rec_status(True)
+            else:
+                self.report('Recording source path not found!')
+            #self.rec_thread = threading.Thread(target=self._log_rec_())
+            #self.rec_thread.start()
 
     def _log_rec_(self):
-        #try:
-        if self.rec_info['software'] == 'Miniscope':
-            date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
-            self.rec_info['version'] = '1.10'
-            self.timer.start()
-            while not self.rec_info['source_path']:  # waiting for recording to start
-                folders = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
-                if datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
-                self.rec_info['source_path'] = folders[-1]
-                if not self.rec_info['source_path']: time.sleep(.5); self.report('Waiting for recording to start')
-                if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
-        elif self.rec_info['software'] == 'OpenEphys':
-            date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
-            self.rec_info['version'] = '0.5.4'
-            #self.rec_info['source_path'] = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-            # if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
-            folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
-            if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst-timedelta(seconds=20)]
-            self.rec_info['source_path'] = folders[-1]
-
         if self.rec_info['source_path']:
             self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
             self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
             self.set_rec_status(True)
         else:
             self.report('Recording source path not found!')
-
-        #except:
-        #    print('rec error!')
-        #    self.ui.error_indicator.setDown(True); self.abort()
 
     def stop_rec(self, *args):
         if self.rec_started and self.ui.autocopy.checkState():
@@ -297,7 +218,7 @@ class Runner(QtWidgets.QWidget):
                         self.copy_file(source_file, filepath)
         self.set_rec_status(False)
 
-    def copy_file(self,source_file, target_file):
+    def copy_file(self, source_file, target_file):
         target_file = os.path.join(self.rec_info['target_path'], target_file).replace("\\", "/")
         self.report('Copying %s to %s' % (source_file, target_file))
         self.copier.append(source_file, target_file)
@@ -354,6 +275,36 @@ class Runner(QtWidgets.QWidget):
             self.stop()
             self.ui.abort_button.setText("Abort")
 
+    def run_task(self, task):
+        if self.setup_name == 'local':
+            self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
+                                      cwd=os_path+'EthoPy/', shell=True)
+        else:
+            self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
+                                          dict(setup=self.setup_name))
+
+    def start_recorder(self):
+        callbacks = dict(connected=self.ui.connect_indicator.setDown,
+                         started=self.set_rec_info,
+                         stopped=self.stop_rec,
+                         report=self.report,
+                         abort=self.abort,
+                         recording=self.set_rec_status)
+
+        if self.ui.software.currentText() == 'ScanImage':
+            self.recorder = ScanImage(callbacks=callbacks)
+            self.recorder.register_callback(dict(message=self._message))
+        elif self.ui.software.currentText() == 'Imager':
+            self.recorder = Imager(os_path=os_path)
+            self.recorder.register_callback(callbacks)
+
+    def set_rec_status(self, status):
+        self.rec_started = status
+        self.ui.recording_indicator.setDown(status)
+
+    def set_rec_info(self, key):
+        self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
+
     def insert_note(self):
         txt = self.ui.note_field.toPlainText()
         if txt:
@@ -381,6 +332,31 @@ class Runner(QtWidgets.QWidget):
                                                     timestamp=dt.toString("yyyy-MM-dd hh:mm:ss"),
                                                     dose=self.ui.anesthesia_dose.text()), schema='recording')
             self.report('Anesthesia inserted')
+
+    def update_setups(self):
+        self.ui.setup.currentIndexChanged.disconnect()
+        self.ui.setup.clear()
+        self.ui.setup.addItems(['local'] + list(self.logger.get(table='Control', fields=['setup'], schema='experiment',
+                                               key={'status': 'ready'})))
+        self.ui.setup.currentIndexChanged.connect(self.update_setup)
+
+    def update_animal_id(self):
+        try:
+            self.animal_id = int(self.ui.animal_input.text())
+        except ValueError:
+            print("Animal ID does not contain a number!")
+            return
+
+        self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
+        last_session = self.logger._get_last_session()
+        self.ui.session_id.setText(str(last_session))
+        self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
+        self.update_sessions()
+
+    def update_setup(self):
+        self.setup_name = self.ui.setup.currentText()
+        if self.setup_name != 'local':
+            self.logger.setup = self.setup_name
 
     def update_task(self):
         if self.ui.task.value():
@@ -430,6 +406,9 @@ class Runner(QtWidgets.QWidget):
         self.copier.exit()
         self.exit = True
         event.accept()  # let the window close
+
+    def report(self, message):
+        print(message)
 
     def _message(self, message):
         msgBox = QtWidgets.QMessageBox()

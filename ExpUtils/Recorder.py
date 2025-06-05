@@ -47,6 +47,29 @@ class Recorder:
         pass
 
 
+class Miniscope(Recorder): # UNTESTED!!!!
+    def __init__(self, os_path=''):
+        super().__init__()
+        self.version = '1.10'
+
+    def get_rec_info(self, rec_idx):
+        date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
+        self.rec_info['version'] = '1.10'
+        self.timer.start()
+        while not self.rec_info['source_path']:  # waiting for recording to start
+            folders = [folder for folder in glob.glob('D:/Miniscope/' + date + '/*')
+                       if
+                       datetime.strptime(date + ' ' + os.path.split(folder)[1], '%Y_%m_%d %H_%M_%S') >= self.sess_tmst]
+            if not folders[-1]: time.sleep(.5); self.report('Waiting for recording to start')
+            if self.timer.elapsed_time() > 5000: self.report('Recording problem, Aborting'); self.abort(); return
+
+        return dict(source_path=folders[-1],
+                    filename='',
+                    software='Miniscope',
+                    version=self.version,
+                    rec_idx=rec_idx)
+
+
 class OpenEphys(Recorder):
     def __init__(self, os_path=''):
         super().__init__()
@@ -63,7 +86,6 @@ class OpenEphys(Recorder):
                     software='OpenEphys',
                     version=self.version,
                     rec_idx=rec_idx)
-
 
 class Imager(Communicator, Recorder):
     def __init__(self, os_path=''):
