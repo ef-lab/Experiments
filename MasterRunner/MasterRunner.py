@@ -137,10 +137,8 @@ class Runner(QtWidgets.QWidget):
         self.logger.update_setup_info(dict(status='operational', animal_id=self.animal_id),
                                       dict(setup=self.logger.setup))
 
-        # update recording info
-        rec_info = self.recorder.get_rec_info(rec_idx=self.rec_info['rec_idx'])
-        if rec_info:
-            self.set_rec_info(rec_info)
+        # update recording info to get accurate filename
+        self._log_rec_()
         if not self.rec_info['filename'] and self.ui.software.currentText() not in ['Miniscope', 'OpenEphys']:
             self.report('Filename not set! Check recorder status... ')
             self.ui.error_indicator.setDown(True)
@@ -177,21 +175,18 @@ class Runner(QtWidgets.QWidget):
 
             # define rec_info
             self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
-                             'source_path': self.logger.source_path + '/' + self.recorder.software + '/'}
+                             'source_path': self.logger.source_path + self.recorder.software + '/'}
 
             self.recorder.sess_tmst = self.sess_tmst
             self.recorder.set_basepath(self.rec_info['source_path'])
             self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
-            self.set_rec_info({**self.recorder.get_rec_info(self.rec_info), **self.session_key})
-            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
+            self._log_rec_(priority=1)
 
-    def _log_rec_(self):
-        if self.rec_info['source_path']:
-            self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
-            self.ui.file.setText(os.path.basename(self.rec_info['source_path']+self.rec_info['filename']))
-            self.set_rec_status(True)
-        else:
-            self.report('Recording source path not found!')
+    def _log_rec_(self, priority=3):
+        rec_info = self.recorder.get_rec_info(self.rec_info)
+        if rec_info:
+            self.set_rec_info(rec_info)
+            self.logger.log('Recording', data=rec_info, schema='recording', replace=True, priority=priority)
 
     def stop_rec(self, *args):
         if self.rec_started and self.ui.autocopy.checkState():
