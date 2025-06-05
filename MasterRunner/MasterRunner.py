@@ -182,7 +182,7 @@ class Runner(QtWidgets.QWidget):
             self.recorder.sess_tmst = self.sess_tmst
             self.recorder.set_basepath(self.rec_info['source_path'])
             self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
-            self.set_rec_info(dict(**self.recorder.get_rec_info(self.rec_info), **self.session_key))
+            self.set_rec_info({**self.recorder.get_rec_info(self.rec_info), **self.session_key})
             self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
 
     def _log_rec_(self):
