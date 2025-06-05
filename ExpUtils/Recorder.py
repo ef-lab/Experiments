@@ -14,6 +14,7 @@ class Recorder:
         self.base_folder = ''
         self.timer = Timer()
         self.running = False
+        self.software = 'None'
         self.rec_info = dict()
         self._callbacks = dict()
         self.register_callback(callbacks)
@@ -51,6 +52,7 @@ class Miniscope(Recorder): # UNTESTED!!!!
     def __init__(self, os_path=''):
         super().__init__()
         self.version = '1.10'
+        self.software = 'Miniscope'
 
     def get_rec_info(self, rec_idx):
         date = datetime.strftime(self.sess_tmst, '%Y_%m_%d')
@@ -65,7 +67,7 @@ class Miniscope(Recorder): # UNTESTED!!!!
 
         return dict(source_path=folders[-1],
                     filename='',
-                    software='Miniscope',
+                    software=self.software,
                     version=self.version,
                     rec_idx=rec_idx)
 
@@ -74,6 +76,7 @@ class OpenEphys(Recorder):
     def __init__(self, os_path=''):
         super().__init__()
         self.version = '0.5.4'
+        self.software = 'OpenEphys'
 
     def get_rec_info(self, rec_idx):
         date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
@@ -83,7 +86,7 @@ class OpenEphys(Recorder):
 
         return dict(source_path=folders[-1],
                     filename=self.filename,
-                    software='OpenEphys',
+                    software=self.software,
                     version=self.version,
                     rec_idx=rec_idx)
 
@@ -95,6 +98,7 @@ class Imager(Communicator, Recorder):
         self.base_folder = ''
         self.timer = Timer()
         self.running = False
+        self.software = 'Imager'
         self.rec_info = dict(software='Imager', version='0.1')
         self.register_callback(dict(rec_info=self.update_rec_info))  # function to update the recording information
 
@@ -119,7 +123,7 @@ class Imager(Communicator, Recorder):
         self.send(dict(basename=basename))
 
     def get_rec_info(self, rec_idx):
-        self.update_rec_info(dict(rec_idx=rec_idx, source_path='F:/Imager/'))
+        self.update_rec_info(dict(rec_idx=rec_idx, source_path='F:/Imager/', software=self.software))
         #self._callbacks['set_rec_info'](self.rec_info)
         #self._callbacks['recording'](True)
         return self.rec_info
@@ -128,6 +132,7 @@ class Imager(Communicator, Recorder):
 class ScanImage(Recorder):
     def __init__(self, callbacks):
         super().__init__(callbacks=callbacks)
+        self.software = 'ScanImage'
         mat_engines = matlab.engine.find_matlab()
         if not mat_engines:
             self._callbacks['message']("No MATLAB detected: \n " +
@@ -155,7 +160,7 @@ class ScanImage(Recorder):
         self.matlab.eval("hSI.hScan_ImagingScanner.logFilePath='" + self.base_folder + "'", nargout=0)
         return dict(source_path=self.base_folder,
                     filename=self.filename,
-                    software='ScanImage',
+                    software=self.software,
                     version=self.version,
                     rec_idx=rec_idx)
 
