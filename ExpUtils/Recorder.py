@@ -120,7 +120,7 @@ class Imager(Communicator, Recorder):
 
     def get_rec_info(self, rec_idx):
         self.update_rec_info(dict(rec_idx=rec_idx, source_path='F:/Imager/'))
-        self._callbacks['set_rec_info'](self.rec_info)
+        #self._callbacks['set_rec_info'](self.rec_info)
         #self._callbacks['recording'](True)
         return self.rec_info
 
