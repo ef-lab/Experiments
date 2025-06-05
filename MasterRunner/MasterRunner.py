@@ -28,7 +28,7 @@ class Runner(QtWidgets.QWidget):
         super(Runner, self).__init__()
         self.queue = Queue()
         self.copier = Copier()
-        self.targetpath = self.common.Paths().getLocal('data')
+        self.targetpath = self.common.Paths().getLocal('data01')
         self.copier.run()
         self.timer = Timer()
         self.main_timer = Timer()
@@ -133,6 +133,11 @@ class Runner(QtWidgets.QWidget):
             if self.timer.elapsed_time() > 10000:
                 self.report('Recording problem, Aborting')
                 self.ui.error_indicator.setDown(True); self.abort(); return
+        if self.rec_info['source_path']:
+            self.ui.file.setText(os.path.basename(self.rec_info['source_path'] + self.rec_info['filename']))
+            self.set_rec_status(True)
+        else:
+            self.report('Recording source path not found!')
 
         # once recording has started, only then start stimulus
         self.logger.update_setup_info(dict(status='operational', animal_id=self.animal_id),
@@ -171,6 +176,7 @@ class Runner(QtWidgets.QWidget):
             # SET REC IDX
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+            self.set_rec_info({'rec_idx': rec_idx})
 
             # get session tmst
             self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
@@ -189,11 +195,6 @@ class Runner(QtWidgets.QWidget):
             self.set_rec_info(dict(**self.recorder.get_rec_info(rec_idx), **self.session_key))
             self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
 
-            if self.rec_info['source_path']:
-                self.ui.file.setText(os.path.basename(self.rec_info['source_path'] + self.rec_info['filename']))
-                self.set_rec_status(True)
-            else:
-                self.report('Recording source path not found!')
             #self.rec_thread = threading.Thread(target=self._log_rec_())
             #self.rec_thread.start()
 
