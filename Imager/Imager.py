@@ -44,22 +44,18 @@ class Imager(QtWidgets.QWidget):
         timer.start(100)
         self.updateplot()
         self.conn = Communicator(role='client')
-        self.conn.register_callback(dict(start=self.start_rec))
-        self.conn.register_callback(dict(stop=self.stop_rec))
-        self.conn.register_callback(dict(basename=self.set_basename))
-        self.conn.register_callback(dict(basepath=self.set_basepath))
+        self.conn.register_callback(dict(start=self.start_rec,
+                                         stop=self.stop_rec,
+                                         basename=self.set_basename))
         self.conn.send(dict(connected=True))
 
     def set_basename(self, basename):
         self.basename = basename
 
-    def set_basepath(self, basepath):
-        self.basepath = basepath
-
     def start_rec(self, *args):
         self.ui.rec_button.setDown(True)
         self.ui.stop_button.setDown(False)
-        self.filename = self.cam.rec(basename=self.basepath + str(self.basename))
+        self.filename = self.cam.rec(basename=str(self.basename))
         self.rec_info = dict(source_path=os.path.dirname(self.filename),
                              filename=os.path.basename(self.filename),
                              software='Imager',

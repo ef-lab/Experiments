@@ -179,13 +179,13 @@ class Runner(QtWidgets.QWidget):
 
             self.recorder.sess_tmst = self.sess_tmst
             self.recorder.set_basepath(self.rec_info['source_path'])
-            self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
+            self.recorder.set_basename(self.rec_info['source_path'] + str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
             self._log_rec_(priority=1)
 
     def _log_rec_(self, priority=3):
         rec_info = self.recorder.get_rec_info(self.rec_info)
         if rec_info:
-            self.set_rec_info(rec_info)
+            rec_info = self.set_rec_info(rec_info)
             self.logger.log('Recording', data=rec_info, schema='recording', replace=True, priority=priority)
 
     def stop_rec(self, *args):
@@ -287,6 +287,7 @@ class Runner(QtWidgets.QWidget):
 
     def set_rec_info(self, key):
         self.rec_info = {**self.rec_info, **key, 'rec_aim': self.ui.aim.currentText()}
+        return self.rec_info
 
     def insert_note(self):
         txt = self.ui.note_field.toPlainText()

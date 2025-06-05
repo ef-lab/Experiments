@@ -125,10 +125,6 @@ class Imager(Communicator, Recorder):
     def set_basename(self, basename):
         self.send(dict(basename=basename))
 
-    def set_basepath(self, basepath):
-        self.send(dict(basepath=basepath))
-
-
 class ScanImage(Recorder):
     def __init__(self, callbacks):
         super().__init__(callbacks=callbacks)
