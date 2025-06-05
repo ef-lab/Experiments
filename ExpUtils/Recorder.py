@@ -26,8 +26,8 @@ class Recorder:
     def stop(self):
         pass
 
-    def get_rec_info(self, rec_idx=0):
-        return False
+    def get_rec_info(self, rec_info):
+        return self.update_rec_info(rec_info)
 
     def update_key(self, key):
         self.key.update(key)
@@ -35,8 +35,12 @@ class Recorder:
     def set_basename(self, key):
         pass
 
+    def set_basepath(self, key):
+        pass
+
     def update_rec_info(self, rec_info):
         self.rec_info.update(rec_info)
+        return rec_info
 
     def register_callback(self, key):
         self._callbacks.update(key) # update the dictionary with the callback functions
@@ -90,6 +94,7 @@ class OpenEphys(Recorder):
                     version=self.version,
                     rec_idx=rec_idx)
 
+
 class Imager(Communicator, Recorder):
     def __init__(self, os_path=''):
         super().__init__()
@@ -104,10 +109,8 @@ class Imager(Communicator, Recorder):
 
         if os.name == 'nt':
             Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
-            #Popen('python Y:/manolis/github/Experiments/Imager/Imager.py', cwd='Y:/manolis/github/Experiments', shell=True)
         else:
             Popen('sh Imager.sh', cwd='../', shell=True)
-            #
 
     def start(self):
         self.send('start')
@@ -121,12 +124,6 @@ class Imager(Communicator, Recorder):
 
     def set_basename(self, basename):
         self.send(dict(basename=basename))
-
-    def get_rec_info(self, rec_idx):
-        self.update_rec_info(dict(rec_idx=rec_idx, source_path='F:/Imager/', software=self.software))
-        #self._callbacks['set_rec_info'](self.rec_info)
-        #self._callbacks['recording'](True)
-        return self.rec_info
 
 
 class ScanImage(Recorder):
@@ -152,7 +149,8 @@ class ScanImage(Recorder):
         self.matlab.eval("hSI.hScan_ImagingScanner.logFilePath='" + self.base_folder + "'", nargout=0)
         self._callbacks['connected'](True)
 
-    def get_rec_info(self, rec_idx):
+    def get_rec_info(self, rec_info):
+        rec_idx = rec_info['rec_idx']
         self.matlab.eval("hSI.hScan_ImagingScanner.logFileCounter=" + str(rec_idx), nargout=0)
         file_base = str(self.key['animal_id']) + '_' + str(self.key['session'])
         self.filename = file_base + '_' + str(rec_idx).zfill(5)

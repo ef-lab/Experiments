@@ -16,9 +16,7 @@ class Imager(QtWidgets.QWidget):
         super(Imager, self).__init__()
         self.queue = Queue(maxsize=2)
         self.basename = ''
-        #self.basepath = 'D:/Imager/' #str(Path.home()) + '/data/'
-        self.basepath = 'F:/Imager/' #str(Path.home()) + '/data/'
-        #self.basepath = str(Path.home()) + '/data/'
+        self.basepath = ''
         self.filename = ''
         self.rec_info = dict()
         # load ui
@@ -53,6 +51,9 @@ class Imager(QtWidgets.QWidget):
 
     def set_basename(self, basename):
         self.basename = basename
+
+    def set_basepath(self, basepath):
+        self.basepath = basepath
 
     def start_rec(self, *args):
         self.ui.rec_button.setDown(True)

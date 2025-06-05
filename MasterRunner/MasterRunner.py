@@ -6,7 +6,6 @@ from pathlib import Path
 os_path = str(Path.home())
 os_path += '/GitHub/' if os.name == 'nt' else '/github/'
 sys.path.append(os_path + 'EthoPy')
-#sys.path.append('Y:\manolis\github\EthoPy')
 sys.path.append(os_path + 'lab/python')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))))
 
@@ -92,7 +91,6 @@ class Runner(QtWidgets.QWidget):
         self.start_thread.start()
 
     def _start(self):
-        #try:
         # Initialize indicators:
         self.state = 'starting'
         self.ui.start_button.setDown(True)
@@ -120,10 +118,6 @@ class Runner(QtWidgets.QWidget):
 
         # Log recording and get rec_idx
         self.log_rec()
-
-        # start the experiment
-        #if self.ui.software.currentText() in ['ScanImage', 'Thorcam']:
-        #    self._message('Start Recorder!')
 
         # start recording
         self.recorder.start()
@@ -165,10 +159,6 @@ class Runner(QtWidgets.QWidget):
         self.report('Experiment started')
         self.state = 'running'
         self.update_sessions()
-        #except:
-        #    print('start error!')
-        #    self.ui.error_indicator.setDown(True)
-        #    self.abort()
 
     def log_rec(self):
 
@@ -176,27 +166,24 @@ class Runner(QtWidgets.QWidget):
             # SET REC IDX
             recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
             rec_idx = 1 if not recs.size > 0 else max(recs) + 1
-            self.set_rec_info({'rec_idx': rec_idx})
 
             # get session tmst
             self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
 
             # set target path
             target_path = os.path.join(self.targetpath, self.recorder.software, str(self.session_key['animal_id']) +
-                                       '_' + str(self.session_key['session']) + '_' + str(self.rec_info['rec_idx']) + '_' +
+                                       '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
                                        datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
 
             # define rec_info
-            self.rec_info = {'source_path': '', **self.rec_info, **self.session_key,
-                             'target_path': target_path}
+            self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
+                             'source_path': self.logger.source_path + '/' + self.recorder.software + '/'}
 
             self.recorder.sess_tmst = self.sess_tmst
+            self.recorder.set_basepath(self.rec_info['source_path'])
             self.recorder.set_basename(str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
-            self.set_rec_info(dict(**self.recorder.get_rec_info(rec_idx), **self.session_key))
+            self.set_rec_info(dict(**self.recorder.get_rec_info(self.rec_info), **self.session_key))
             self.logger.log('Recording', data=self.rec_info, schema='recording', replace=True, priority=1)
-
-            #self.rec_thread = threading.Thread(target=self._log_rec_())
-            #self.rec_thread.start()
 
     def _log_rec_(self):
         if self.rec_info['source_path']:
