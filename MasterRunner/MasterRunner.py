@@ -182,7 +182,7 @@ class Runner(QtWidgets.QWidget):
             self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
 
             # set target path
-            target_path = os.path.join(self.targetpath, self.rec_info['software'], str(self.session_key['animal_id']) +
+            target_path = os.path.join(self.targetpath, self.recorder.software, str(self.session_key['animal_id']) +
                                        '_' + str(self.session_key['session']) + '_' + str(self.rec_info['rec_idx']) + '_' +
                                        datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
 
