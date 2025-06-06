@@ -1,5 +1,5 @@
-import os, time, threading
-from datetime import datetime
+import os, time, threading, glob
+from datetime import datetime, timedelta
 from subprocess import Popen
 from ExpUtils.Communicator import Communicator
 from ExpUtils.Timer import *
@@ -79,20 +79,20 @@ class Miniscope(Recorder): # UNTESTED!!!!
 class OpenEphys(Recorder):
     def __init__(self, os_path=''):
         super().__init__()
-        self.version = '0.5.4'
+        self.version = '0.6.7'
         self.software = 'OpenEphys'
 
-    def get_rec_info(self, rec_idx):
+    def get_rec_info(self, rec_info):
         date = datetime.strftime(self.sess_tmst, '%Y-%m-%d')
         folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
                    if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst - timedelta(
                 seconds=20)]
-
+        print('folders: ', folders)
         return dict(source_path=folders[-1],
                     filename=self.filename,
                     software=self.software,
                     version=self.version,
-                    rec_idx=rec_idx)
+                    rec_idx=rec_info['rec_idx'])
 
 
 class Imager(Communicator, Recorder):

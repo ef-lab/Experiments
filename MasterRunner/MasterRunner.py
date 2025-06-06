@@ -184,6 +184,7 @@ class Runner(QtWidgets.QWidget):
         rec_info = self.recorder.get_rec_info(self.rec_info)
         if rec_info:
             rec_info = self.set_rec_info(rec_info)
+            print('rec_info: ', rec_info)
             self.logger.log('Recording', data=rec_info, schema='recording', replace=True, priority=priority)
 
     def stop(self):
