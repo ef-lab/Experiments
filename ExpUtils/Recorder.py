@@ -87,7 +87,6 @@ class OpenEphys(Recorder):
         folders = [folder for folder in glob.glob('D:/OpenEphys/' + date + '*')
                    if datetime.strptime(os.path.split(folder)[1], '%Y-%m-%d_%H-%M-%S') >= self.sess_tmst - timedelta(
                 seconds=20)]
-        print('folders: ', folders)
         return dict(source_path=folders[-1],
                     filename=self.filename,
                     software=self.software,
