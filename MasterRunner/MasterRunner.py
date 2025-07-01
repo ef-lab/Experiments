@@ -1,3 +1,5 @@
+import time
+
 from PyQt5 import uic, QtWidgets, QtCore
 import os, numpy, sys, glob, json, re
 from datetime import datetime, timedelta
@@ -327,6 +329,9 @@ class Runner(QtWidgets.QWidget):
             return
 
         self.logger.update_setup_info(dict(animal_id=self.animal_id), dict(setup=self.logger.setup))
+        # wait for animal id to be updated before getting the last session
+        while self.logger.get_setup_info("animal_id") != self.animal_id:
+            time.sleep(.5)
         last_session = self.logger._get_last_session()
         self.ui.session_id.setText(str(last_session))
         self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
