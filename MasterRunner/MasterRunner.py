@@ -20,7 +20,7 @@ import common as common
 
 
 class Runner(QtWidgets.QWidget):
-    animal_id, session, setup_name, rec_started, exit, rec_info = 0, '', '', False, False, {'software': "None"}
+    animal_id, session, setup_name, rec_started, exit, rec_info = 0, '', '', False, False, {'software':"None"}
     colormap, common, state, dtype, shape, session_key = 'gray', common, 'starting', numpy.int16, (600, 600), dict()
     dual_recorder_mode, imager, scanimage = False, None, None
 
@@ -84,10 +84,10 @@ class Runner(QtWidgets.QWidget):
         self.main_loop_timer.start(50)
 
     def start(self):
-        if self.state != 'ready':
+        if self.state != 'ready': # complain if double start
             self.report('Already started!')
             return
-
+        
         # update stuff
         self.ui.error_indicator.setDown(False)  # reset error indicator
         self.update_setup() # update setup id for logging
@@ -95,8 +95,8 @@ class Runner(QtWidgets.QWidget):
         self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1) # sets the correct session id for new session. Assumes incremental changes.
         print(f"######################## New Session Key {self.session_key}")
         # Programs that are synced by recording of EthoPy generated pulses, need to start before EthoPy Session. 
-        # Can we handle this inside the recorder?
-        if self.ui.software.currentText() == 'OpenEphys':
+        # Can we handle this inside the recorder? 
+        if self.ui.software.currentText() == 'OpenEphys':  
             self._message('Start OpenEphys Recording!')
             self.recorder = OpenEphys() 
             time.sleep(1)
@@ -130,14 +130,14 @@ class Runner(QtWidgets.QWidget):
             table.update1(self.session_key)
             self.logger.thread_lock.release()
         else:
-            self.logger.log_session(dict(user=self.ui.user.currentText(), setup_conf_idx=0))
+            self.logger.log_session(dict(user=self.ui.user.currentText(), setup_conf_idx=0)) # we might need to rethink conf_idx = 0
         time.sleep(2)
 
         if self.ui.software.currentText() != 'None':  # check if recorder is selected
             self.log_rec()  # Log recording and get rec_idx
 
         # start recording
-        if self.dual_recorder_mode:
+        if self.dual_recorder_mode: # why ouside of recorder?
             self.imager.start()
             self.scanimage.start()
         else:
@@ -180,9 +180,15 @@ class Runner(QtWidgets.QWidget):
         self.refresh_sessions()
 
     def log_rec(self):
+        # Wait Ethopy to log the files before log
+        time.sleep(5)
         # SET REC IDX
+        print("*"*50)
+        print(time.strftime("%H:%M:%S"))
         recs = self.logger.get(table='Recording', fields=['rec_idx'], key=self.session_key, schema='recording')
-        rec_idx = 1 if not recs.size > 0 else max(recs) + 1
+        print(self.logger.get(table='Recording', key=self.session_key, schema='recording'))
+        rec_idx = 1 if len(recs) == 0 else max(recs) + 1
+        print("*"*50)
 
         # get session tmst
         self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
@@ -192,7 +198,7 @@ class Runner(QtWidgets.QWidget):
             software_name = 'ScanImage_Imager'
         else:
             software_name = self.recorder.software
-
+        
         target_path = os.path.join(self.targetpath, software_name, str(self.session_key['animal_id']) +
                                    '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
                                    datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
@@ -201,7 +207,7 @@ class Runner(QtWidgets.QWidget):
         self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
                          'source_path': self.logger.source_path + software_name + '/',
                          'software': software_name}
-
+        
         if self.dual_recorder_mode:
             self.imager.sess_tmst = self.sess_tmst
             self.scanimage.sess_tmst = self.sess_tmst
@@ -249,7 +255,7 @@ class Runner(QtWidgets.QWidget):
 
     def stop(self):
         if self.state in {'running', 'starting'}:
-            if self.logger.get_setup_info('status') == 'running':
+            if self.logger.get_setup_info('status') in {'running', 'operational'}:
                 self.logger.update_setup_info(dict(status='stop', animal_id=self.animal_id),
                                               dict(setup=self.setup_name))
                 while self.logger.get_setup_info('status') not in {'exit', 'ready'}:
@@ -297,8 +303,7 @@ class Runner(QtWidgets.QWidget):
 
     def abort(self):
         if self.state in {'running', 'starting'}:
-            if self.setup_name == 'local':
-                Popen.kill(self.ethopy_proc)
+            if self.setup_name == 'local': Popen.kill(self.ethopy_proc)
             self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
             self.ui.abort_button.setText("Aborting")
             self.stop()
@@ -307,7 +312,7 @@ class Runner(QtWidgets.QWidget):
     def run_task(self, task):
         if self.setup_name == 'local':
             self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
-                                     cwd=os_path+'EthoPy/', shell=True)
+                                      cwd=os_path+'EthoPy/', shell=True)
         else:
             self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
                                           dict(setup=self.setup_name))
@@ -365,10 +370,10 @@ class Runner(QtWidgets.QWidget):
                 if self.scanimage_info:
                     # print("self.scanimage_info ", self.scanimage_info)
                     recorder_infos.append(self.scanimage_info)
-                print('recorder_infos ',recorder_infos)
+                # print('recorder_infos ',recorder_infos)
                 for rec_info in recorder_infos:
                     source_file = os.path.join(rec_info['source_path'], rec_info['filename']).replace("\\", "/")
-                    print(f"########################## source_file: {source_file} {rec_info['filename']}")  
+                    # print(f"########################## source_file: {source_file} {rec_info['filename']}")  
                     if os.path.isfile(source_file) or os.path.isdir(source_file):
                         self.copy_file(source_file, rec_info['filename'])
                     else:
@@ -376,7 +381,7 @@ class Runner(QtWidgets.QWidget):
                         for filepath in os.listdir(rec_info['source_path']):
                             source_file = os.path.join(rec_info['source_path'], filepath).replace("\\", "/")
                             if pattern.match(filepath):
-                                print(f"########################## pattern match source_file: {source_file} {filepath}")
+                                # print(f"########################## pattern match source_file: {source_file} {filepath}")
                                 self.copy_file(source_file, filepath)
             else:
                 # Single recorder mode
@@ -393,7 +398,7 @@ class Runner(QtWidgets.QWidget):
 
     def copy_file(self, source_file, target_file):
         target_file = os.path.join(self.rec_info['target_path'], target_file).replace("\\", "/")
-        self.report('----------------- Copying %s to %s' % (source_file, target_file))
+        # self.report('----------------- Copying %s to %s' % (source_file, target_file))
         self.copier.append(source_file, target_file)
 
     def set_rec_status(self, status):
@@ -475,11 +480,15 @@ class Runner(QtWidgets.QWidget):
                 self.ui.task_file.setText(str(filename))
 
     def refresh_sessions(self):
-        print("Refresh sessions")
         info = ['']*5
-        info[0], info[1], info[2], info[3], info[4] = \
-            self.logger.get(table='Session', fields=['session', 'user_name', 'setup','experiment_type', 'session_tmst'],
-                            schema='experiment', key={'animal_id': self.animal_id})
+        try:
+            info[0], info[1], info[2], info[3], info[4] = \
+                self.logger.get(table='Session', fields=['session', 'user_name', 'setup','experiment_type', 'session_tmst'],
+                                schema='experiment', key={'animal_id': self.animal_id})
+        except Exception as e:
+            print("Exception during frcth of the setup status: ",e)
+            return
+
         # Set the table values
         self.ui.Sessions.clearContents()
         for row in range(len(info[0])):
@@ -494,7 +503,11 @@ class Runner(QtWidgets.QWidget):
             self.copying_callback()
             self.main_timer.start()
             if self.state in ['running', 'operational'] and self.ui.task_check.checkState():
-                status = self.logger.get_setup_info('status')
+                try:
+                    status = self.logger.get_setup_info('status')
+                except Exception as e:
+                    print("Exception during frcth of the setup status: ",e)
+                    return
                 self.ui.trial_number.setText(str(self.logger.setup_info['trials']))
                 if status not in ['running', 'operational'] and self.logger.setup_info['state'] == 'ERROR!':
                     self.report('Error!')
@@ -510,8 +523,8 @@ class Runner(QtWidgets.QWidget):
     def _get_recorder_state(self):
         if self.dual_recorder_mode:
             if self.imager.get_state() or self.scanimage.get_state():
-                print("imager state: ", self.imager.get_state())
-                print("scan_image state: ", self.scanimage.get_state())
+                print("Imager is running: ", self.imager.get_state())
+                print("Scan_Image is running: ", self.scanimage.get_state())
             return self.imager.get_state() or self.scanimage.get_state()
         else:
             return self.recorder.get_state()
