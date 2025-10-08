@@ -95,8 +95,8 @@ class Runner(QtWidgets.QWidget):
         self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1) # sets the correct session id for new session. Assumes incremental changes.
         print(f"######################## New Session Key {self.session_key}")
         # Programs that are synced by recording of EthoPy generated pulses, need to start before EthoPy Session. 
-        # Can we handle this inside the recorder? 
-        if self.ui.software.currentText() == 'OpenEphys':  
+        # Can we handle this inside the recorder?
+        if self.ui.software.currentText() == 'OpenEphys':
             self._message('Start OpenEphys Recording!')
             self.recorder = OpenEphys() 
             time.sleep(1)
@@ -253,7 +253,7 @@ class Runner(QtWidgets.QWidget):
                 self.logger.update_setup_info(dict(status='stop', animal_id=self.animal_id),
                                               dict(setup=self.setup_name))
                 while self.logger.get_setup_info('status') not in {'exit', 'ready'}:
-                    print("Wait Ethopy to stop (go at exit or running state)!")
+                    print("Wait Ethopy to stop (go at exit or ready state)!")
                     time.sleep(.5)
             self.ui.stimulus_indicator.setDown(False)
             if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
