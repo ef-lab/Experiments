@@ -3,7 +3,7 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5 import QtGui
 import os, numpy, sys
 from pathlib import Path
-os_path = '/Documents/GitHub/' if os.name == 'nt' else '/github/'
+os_path = '/Documents/alex/'
 sys.path.append(str(Path.home()) + os_path + 'Experiments')
 from Camera import *
 from ExpUtils.Communicator import *
@@ -23,7 +23,8 @@ class Imager(QtWidgets.QWidget):
         path = os.path.join(os.path.dirname(__file__), "form.ui")
         self.ui = uic.loadUi(path, self)
         self.setColorTable()
-        self.fps = self.ui.fps_input.value()
+        self.fps = 30 # self.ui.fps_input.value()
+        self.ui.fps_input.setValue(self.fps)
         self.shape = (self.ui.X_sz.value(), self.ui.Y_sz.value())
         #self.shape=(640, 480)
         self.cam = self.setCamera()                    # handle inputs
@@ -65,16 +66,17 @@ class Imager(QtWidgets.QWidget):
                             rec_info=self.rec_info))
 
     def stop_rec(self, *args):
+        print("stop_rec in Imager")
         self.ui.rec_button.setDown(False)
         self.cam.stop()
-
-        self.conn.send(dict(stopped=True))
+        print("******************************************** Send stop self.conn.send(dict(stopped=True)) ")
+        self.conn.send(dict(stop_done=True, stopped=True))
 
     def updateFPS(self):
         if not self.ui.rec_button.isDown():
             fps = self.cam.set_frame_rate(self.ui.fps_input.value())
             self.fps = fps
-            self.ui.fps_input.setValue(fps)
+            self.ui.fps_input.setValue(float(fps))
 
     def updateExposure(self):
         if not self.ui.rec_button.isDown():
@@ -85,9 +87,9 @@ class Imager(QtWidgets.QWidget):
             self.cam.set_gain(self.ui.gain_input.value())
 
     def setCamera(self):
-        #cam = SpinCam(shape=self.shape)
+        cam = SpinCam(shape=self.shape)
         #cam = WebCam(shape=self.shape)
-        cam = ThorCam(shape=self.shape)
+        # cam = ThorCam(shape=self.shape)
         cam.fps = self.fps
         cam.set_queue(self.queue)
         cam.start()
@@ -106,6 +108,7 @@ class Imager(QtWidgets.QWidget):
             self.ui.fps_indicator.display(int(self.cam.reported_framerate))
 
     def closeEvent(self, event):
+        print("Imager close Event")
         self.cam.stop()
         self.cam.quit()
         self.conn.quit()

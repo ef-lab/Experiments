@@ -21,7 +21,7 @@ class Camera:
         self.time = 0
         self.reported_framerate = 0
         self.recording = False
-        self.bit_depth = 10
+        self.bit_depth = 8
 
     def setup(self):
         self.cam_queue = Queue()
@@ -58,13 +58,16 @@ class Camera:
 
     def stop(self):
         if self.recording:
-            self.recording = False
             print('Wrote %d frames' % self.iframe)
             self.save.clear()
             if hasattr(self, 'saver'):
+                print("start exit saver")
                 self.saver.exit()
+                print("start exit exit")
             while self.saver.writing:
+                print("saver of camera is writing")
                 time.sleep(0.2)
+        self.recording = False
 
     def set_frame_rate(self, fps):
         self.namespace.fps = fps
@@ -80,9 +83,10 @@ class Camera:
                     self.saver.append('frames', item['frames'])
                 if self.process_queue.full():
                     self.process_queue.get()
-                self.reported_framerate = 1/(item['timestamps'] - self.time)
+                time_diff = item['timestamps'] - self.time
+                self.reported_framerate = 1/time_diff if time_diff != 0 else 0
                 self.time = item['timestamps']
-                v = numpy.uint8(item['frames']/4)#255/pow(2, self.bit_depth))
+                v = numpy.uint8(item['frames'])#255/pow(2, self.bit_depth))
                 self.process_queue.put(v)
 
     def capture(self, namespace):
@@ -204,15 +208,16 @@ class FakeAravisCam(AravisCam):
 
 
 class SpinCam(Camera):
-    def __init__(self, shape=(600, 600)):
+    def __init__(self, shape=(1280, 1024)):
+        print("init PySpin camera")
         self.myPySpin = import_module("PySpin")
         self.stream = []
-        self.fps = 20
+        self.fps = 30
         self.time = 0
         self.exposure_time = 4000
         self.iframe = 0
         self.reported_framerate = 0
-        self.x, self.y, self.width, self.height = 0,0,600,600
+        self.x, self.y, self.width, self.height = 0,0,1280,1024
 
         self.system = self.myPySpin.System.GetInstance()
         self.camera = self.system.GetCameras()[0]
@@ -221,6 +226,7 @@ class SpinCam(Camera):
         self.recording = False
 
     def setup_camera(self):
+        print("setup_camera PySpin camera")
         self.camera.Init()
         self.camera.UserSetSelector.SetValue(self.myPySpin.UserSetSelector_Default)
         self.camera.UserSetLoad()
@@ -231,10 +237,10 @@ class SpinCam(Camera):
         acquisition_mode_continuous = acquisition_mode_continuous_node.GetValue()
         acquisition_mode_node.SetIntValue(acquisition_mode_continuous)
 
-        roi_node = self.myPySpin.CIntegerPtr(nodemap.GetNode("Width"))
-        roi_node.SetValue(1200)
-        node_binning_vertical = self.myPySpin.CIntegerPtr(nodemap.GetNode('BinningVertical'))
-        node_binning_vertical.SetValue(2)
+        #roi_node = self.myPySpin.CIntegerPtr(nodemap.GetNode("Width"))
+        #roi_node.SetValue(1200)
+        #node_binning_vertical = self.myPySpin.CIntegerPtr(nodemap.GetNode('BinningVertical'))
+        #node_binning_vertical.SetValue(2)
 
         self.acquisition_rate_node = self.camera.AcquisitionFrameRate
         frame_rate_auto_node = self.myPySpin.CEnumerationPtr(nodemap.GetNode("AcquisitionFrameRateAuto"))
@@ -245,9 +251,9 @@ class SpinCam(Camera):
         self.rate_max = self.acquisition_rate_node.GetMax()
         self.rate_min = self.acquisition_rate_node.GetMin()
 
-        self.dtype = numpy.uint16
+        self.dtype = numpy.uint8
         #self.camera.AdcBitDepth.SetValue(self.myPySpin.AdcBitDepth_Bit12)
-        self.camera.PixelFormat.SetValue(self.myPySpin.PixelFormat_Mono16)
+        self.camera.PixelFormat.SetValue(self.myPySpin.PixelFormat_Mono8)
         self.camera.ExposureAuto.SetValue(self.myPySpin.ExposureAuto_Off)
         self.camera.GainAuto.SetValue(self.myPySpin.GainAuto_Off)
         self.set_gain(0)
@@ -300,6 +306,7 @@ class SpinCam(Camera):
         self.thread_runner.start()
 
     def capture(self, q, stream):
+        print("Start Capture frames")
         while not self.capture_end.is_set():
             if not self.pause.is_set():
                 try:
@@ -311,10 +318,12 @@ class SpinCam(Camera):
                         item['frames'] = dat
                         item['timestamps'] = time.time()
                         q.put(item)
-                except:
+                except Exception as e:
+                    print(f"Error in capture: {e}")
                     pass
 
     def quit(self):
+        print("Quit PySpin Camera")
         self.thread_end.set()
         self.camera.EndAcquisition()
         self.camera.DeInit()

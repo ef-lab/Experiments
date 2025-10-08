@@ -27,6 +27,7 @@ class Copier:
                 if os.path.isdir(data['source']):
                     copytree(data['source'], data['target'], dirs_exist_ok=True)
                 else:
+                    print(f"from{data['source']} to {data['target']} ")
                     copyfile(data['source'], data['target'])
                 print('Done copying')
             else:

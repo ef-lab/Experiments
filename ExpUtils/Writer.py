@@ -64,7 +64,9 @@ class Writer(object):
 
     def exit(self):
         while not self.queue.empty():
+            print(f"queue size: {self.queue.qsize()}")
             time.sleep(.1)
+            print()
         self.thread_end.set()
         #self.thread_runner.join()
         self.writing = False

@@ -1,4 +1,4 @@
-import os, time, threading, glob
+import os, time, threading, glob, sys
 from datetime import datetime, timedelta
 from subprocess import Popen
 from ExpUtils.Communicator import Communicator
@@ -104,21 +104,32 @@ class Imager(Communicator, Recorder):
         self.running = False
         self.software = 'Imager'
         self.rec_info = dict(software='Imager', version='0.1')
-        self.register_callback(dict(rec_info=self.update_rec_info))  # function to update the recording information
-
+        self.register_callback(dict(rec_info=self.update_rec_info,
+                                     stop_done=self._on_stopped))
         if os.name == 'nt':
-            Popen('python3.11 %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
+            print(f"os name: {os.name} python {sys.version}, os_path:{os_path}......")
+            # Popen('python C:/Users/ScanImage/Documents/alex_Experiments/Imager/Imager.py', shell=True)
+            Popen('python %sExperiments/Imager/Imager.py' % os_path, cwd=os_path + 'Experiments/', shell=True)
         else:
+            print(f"os name{os.name} sh Imager.sh")
             Popen('sh Imager.sh', cwd='../', shell=True)
 
     def start(self):
+        print('Starting Imager')
         self.send('start')
         self.running = True
 
     def stop(self):
-        self.send('stop')
         print('Stopping Imager')
+        self.send('stop')
+
+    def _on_stopped(self, *args):
+        """Called when Imager confirms recording stopped and files written"""
+        print("Recieve stopped from Imager Process that it has finished")
         self.running = False
+
+    def get_state(self):
+        return self.running
 
     def set_basename(self, basename):
         self.send(dict(basename=basename))
@@ -181,8 +192,8 @@ class ScanImage(Recorder):
             state = self.matlab.eval("hSI.acqState", nargout=1)
             print('waiting for recording to end!')
             time.sleep(.5)
-        self._callbacks['stopped']()
         self.running = False
+        self._callbacks['stopped']()
 
     def get_state(self):
         state = self.matlab.eval("hSI.acqState", nargout=1)

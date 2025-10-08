@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 os_path = str(Path.home())
-os_path += '/GitHub/' if os.name == 'nt' else '/github/'
+os_path += '/Documents/alex/'
 sys.path.append(os_path + 'EthoPy')
 sys.path.append(os_path + 'lab/python')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))))
@@ -20,8 +20,9 @@ import common as common
 
 
 class Runner(QtWidgets.QWidget):
-    animal_id, session, setup_name, rec_started, exit, rec_info = 0, '', '', False, False, {'software':"None"}
+    animal_id, session, setup_name, rec_started, exit, rec_info = 0, '', '', False, False, {'software': "None"}
     colormap, common, state, dtype, shape, session_key = 'gray', common, 'starting', numpy.int16, (600, 600), dict()
+    dual_recorder_mode, imager, scanimage = False, None, None
 
     def __init__(self):
         self.logger = Logger()
@@ -47,7 +48,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.anesthesia_type.addItems(self.logger.get(table='AnesthesiaType', fields=['anesthesia'], schema='recording'))
         self.ui.aim.addItems(self.logger.get(table='Aim', fields=['rec_aim'], schema='recording'))
         self.ui.software.addItems(self.logger.get(table='Software', fields=['software'], schema='recording'))
-        self.ui.animal_input.textChanged.connect(self.update_animal_id)
+        self.ui.animal_input.editingFinished.connect(self.update_animal_id)
         self.ui.surgery_button.clicked.connect(self.insert_surgery)
         self.ui.task.valueChanged.connect(self.update_task)
         self.ui.anesthesia_button.clicked.connect(self.insert_anesthesia)
@@ -77,18 +78,30 @@ class Runner(QtWidgets.QWidget):
         if 'target_path' in config: self.targetpath = config['target_path']
         self.ui.user.setCurrentText('bot')
 
+        # Setup QTimer for main loop
+        self.main_loop_timer = QtCore.QTimer()
+        self.main_loop_timer.timeout.connect(self.main)
+        self.main_loop_timer.start(50)
+
     def start(self):
         if self.state != 'ready':
             self.report('Already started!')
             return
-        self.ui.error_indicator.setDown(False)
-        self.update_setup()
-        self.update_animal_id()
-        self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1)
-        if self.ui.software.currentText() == 'OpenEphys':
+
+        # update stuff
+        self.ui.error_indicator.setDown(False)  # reset error indicator
+        self.update_setup() # update setup id for logging
+        self.update_animal_id() # update animal id
+        self.session_key = dict(animal_id=self.animal_id, session=self.logger._get_last_session() + 1) # sets the correct session id for new session. Assumes incremental changes.
+        print(f"######################## New Session Key {self.session_key}")
+        # Programs that are synced by recording of EthoPy generated pulses, need to start before EthoPy Session. 
+        # Can we handle this inside the recorder? 
+        if self.ui.software.currentText() == 'OpenEphys':  
             self._message('Start OpenEphys Recording!')
-            self.recorder = OpenEphys()
+            self.recorder = OpenEphys() 
             time.sleep(1)
+
+        # Start threaded proceedure
         self.start_thread = threading.Thread(target=self._start)
         self.start_thread.start()
 
@@ -99,7 +112,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.start_button.setText("Starting...")
 
         # run stimulus/behavior task otherwise just insert rec session & wait!
-        if self.ui.task_check.checkState():
+        if self.ui.task_check.checkState(): # runs if task checkbox is ticked
             self.run_task(self.ui.task.value())
             self.timer.start()
             self.report('Waiting session to start')
@@ -109,6 +122,8 @@ class Runner(QtWidgets.QWidget):
                     self.report('Session problem, Aborting')
                     self.ui.error_indicator.setDown(True); self.abort(); return
             self.ui.stimulus_indicator.setDown(True)
+
+            # update user info
             self.logger.thread_lock.acquire()
             table = rgetattr(self.logger._schemata['experiment'], 'Session')
             self.session_key['user_name'] = self.ui.user.currentText()
@@ -122,7 +137,11 @@ class Runner(QtWidgets.QWidget):
             self.log_rec()  # Log recording and get rec_idx
 
         # start recording
-        self.recorder.start()
+        if self.dual_recorder_mode:
+            self.imager.start()
+            self.scanimage.start()
+        else:
+            self.recorder.start()
         self.timer.start()
         while self.ui.connect_indicator.isDown() and not self.rec_started: # wait until recording starts
             time.sleep(.1)
@@ -169,25 +188,64 @@ class Runner(QtWidgets.QWidget):
         self.sess_tmst = self.logger.get(table='Session', fields=['session_tmst'], key=self.session_key)[0]
 
         # set target path
-        target_path = os.path.join(self.targetpath, self.recorder.software, str(self.session_key['animal_id']) +
+        if self.dual_recorder_mode:
+            software_name = 'ScanImage_Imager'
+        else:
+            software_name = self.recorder.software
+
+        target_path = os.path.join(self.targetpath, software_name, str(self.session_key['animal_id']) +
                                    '_' + str(self.session_key['session']) + '_' + str(rec_idx) + '_' +
                                    datetime.strftime(self.sess_tmst, '%Y-%m-%d_%H-%M-%S'))
 
         # define rec_info
         self.rec_info = {**self.rec_info, **self.session_key, 'target_path': target_path, 'rec_idx': rec_idx,
-                         'source_path': self.logger.source_path + self.recorder.software + '/',
-                         'software': self.recorder.software}
-        self.recorder.sess_tmst = self.sess_tmst
-        self.recorder.set_basepath(self.rec_info['source_path'])
-        self.recorder.set_basename(self.rec_info['source_path'] + str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
+                         'source_path': self.logger.source_path + software_name + '/',
+                         'software': software_name}
+
+        if self.dual_recorder_mode:
+            self.imager.sess_tmst = self.sess_tmst
+            self.scanimage.sess_tmst = self.sess_tmst
+            # Set basepath for both recorders
+            self.imager.set_basepath(self.logger.source_path + 'Imager' + '/')
+            self.scanimage.set_basepath(self.logger.source_path + '/')
+            # Set basename for both recorders
+            basename = str(self.session_key['animal_id']) + '_' + str(self.session_key['session'])
+            self.imager.set_basename(self.logger.source_path + 'Imager' + '/' + basename)
+            self.scanimage.set_basename(self.logger.source_path + '/' + basename)
+        else:
+            self.recorder.sess_tmst = self.sess_tmst
+            self.recorder.set_basepath(self.rec_info['source_path'])
+            self.recorder.set_basename(self.rec_info['source_path'] + str(self.session_key['animal_id']) + '_' + str(self.session_key['session']))
         self._log_rec_(priority=1)
 
     def _log_rec_(self, priority=3):
-        rec_info = self.recorder.get_rec_info(self.rec_info)
-        if rec_info:
-            rec_info = self.set_rec_info(rec_info)
-            print('rec_info: ', rec_info)
-            self.logger.log('Recording', data=rec_info, schema='recording', replace=True, priority=priority)
+        if self.dual_recorder_mode:
+            # Get recording info from both recorders
+            imager_info = self.imager.get_rec_info({**self.rec_info, 'software': 'Imager'})
+            if imager_info:
+                self.imager_info = {**self.rec_info, **imager_info, 'rec_aim': self.ui.aim.currentText()}
+                self.imager_info['source_path'] = self.logger.source_path + 'Imager' + '/'
+                # print('Imager rec_info: ', self.imager_info['filename'], self.imager_info['session'], self.imager_info['target_path'])
+                self.logger.log('Recording', data=self.imager_info, schema='recording', replace=True, 
+                                priority=priority)
+            else:
+                print(f"Warning: No Imager info {imager_info}")
+
+            scanimage_info = self.scanimage.get_rec_info({**self.rec_info, 'software': 'ScanImage'})
+            if scanimage_info:
+                self.scanimage_info = {**self.rec_info, **scanimage_info, 'rec_aim': self.ui.aim.currentText()}
+                # print('ScanImage rec_info: ', self.scanimage_info['filename'], self.scanimage_info['session'], self.scanimage_info['target_path'])
+                self.logger.log('Recording', data={**self.scanimage_info, 'rec_idx': self.rec_info['rec_idx'] + 1},
+                                schema='recording', replace=True, priority=priority)
+            else:
+                print(f"Warning: No ScanImage info {imager_info}")
+
+        else:
+            rec_info = self.recorder.get_rec_info(self.rec_info)
+            if rec_info:
+                rec_info = self.set_rec_info(rec_info)
+                print('rec_info: ', rec_info)
+                self.logger.log('Recording', data=rec_info, schema='recording', replace=True, priority=priority)
 
     def stop(self):
         if self.state in {'running', 'starting'}:
@@ -195,6 +253,7 @@ class Runner(QtWidgets.QWidget):
                 self.logger.update_setup_info(dict(status='stop', animal_id=self.animal_id),
                                               dict(setup=self.setup_name))
                 while self.logger.get_setup_info('status') not in {'exit', 'ready'}:
+                    print("Wait Ethopy to stop (go at exit or running state)!")
                     time.sleep(.5)
             self.ui.stimulus_indicator.setDown(False)
             if self.ui.software.currentText() in ['Miniscope', 'OpenEphys']:
@@ -203,7 +262,14 @@ class Runner(QtWidgets.QWidget):
                 self.copier.pause.clear()
                 self.stop_rec()
             else:
-                self.recorder.stop()
+                if self.dual_recorder_mode:
+                    print("########################## Stop dual recording")
+                    self.imager.stop()
+                    print("########################## Stop imager")
+                    self.scanimage.stop()
+                    print("########################## Stop scan_image")
+                else:
+                    self.recorder.stop()
                 while self.rec_started and self.ui.connect_indicator.isDown:
                     time.sleep(.1)
             self.stop_thread = threading.Thread(target=self._stop)
@@ -231,7 +297,8 @@ class Runner(QtWidgets.QWidget):
 
     def abort(self):
         if self.state in {'running', 'starting'}:
-            if self.setup_name == 'local': Popen.kill(self.ethopy_proc)
+            if self.setup_name == 'local':
+                Popen.kill(self.ethopy_proc)
             self.logger.log('Session.Excluded', {**self.session_key, 'reason': "aborted"})
             self.ui.abort_button.setText("Aborting")
             self.stop()
@@ -240,7 +307,7 @@ class Runner(QtWidgets.QWidget):
     def run_task(self, task):
         if self.setup_name == 'local':
             self.ethopy_proc = Popen('python3 %sEthoPy/run.py %d' % (os_path, task),
-                                      cwd=os_path+'EthoPy/', shell=True)
+                                     cwd=os_path+'EthoPy/', shell=True)
         else:
             self.logger.update_setup_info(dict(task_idx=task, status='running', animal_id=self.animal_id),
                                           dict(setup=self.setup_name))
@@ -254,28 +321,79 @@ class Runner(QtWidgets.QWidget):
                          recording=self.set_rec_status)
 
         if self.ui.software.currentText() == 'ScanImage':
+            self.dual_recorder_mode = False
             self.recorder = ScanImage(callbacks=callbacks)
             self.recorder.register_callback(dict(message=self._message))
         elif self.ui.software.currentText() == 'Imager':
+            self.dual_recorder_mode = False
             self.recorder = Imager(os_path=os_path)
             self.recorder.register_callback(callbacks)
+        elif self.ui.software.currentText() == 'ScanImage_Imager':
+            self.dual_recorder_mode = True
+            self.imager = Imager(os_path=os_path)
+            self.imager.register_callback(callbacks)
+            self.scanimage = ScanImage(callbacks=callbacks)
+            self.scanimage.register_callback(dict(message=self._message))
+            self.recorder = self.imager  # Default to imager for single recorder interface
+
+    # def stop_rec(self, *args):
+    #     if self.rec_started and self.ui.autocopy.checkState():
+    #         source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename']).replace("\\", "/")
+    #         if os.path.isfile(source_file) or os.path.isdir(source_file):
+    #             self.copy_file(source_file, self.rec_info['filename'])
+    #         else:
+    #             pattern = re.compile(self.rec_info['filename'] + ".*")
+    #             for filepath in os.listdir(self.rec_info['source_path']):
+    #                 source_file = os.path.join(self.rec_info['source_path'], filepath).replace("\\", "/")
+    #                 if pattern.match(filepath):
+    #                     self.copy_file(source_file, filepath)
+    #     self.set_rec_status(False)
 
     def stop_rec(self, *args):
+        # self.imager.stop()
+        while self._get_recorder_state():
+            print("Waiting for recorders to stop...")
+            time.sleep(2)
+
         if self.rec_started and self.ui.autocopy.checkState():
-            source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename']).replace("\\", "/")
-            if os.path.isfile(source_file) or os.path.isdir(source_file):
-                self.copy_file(source_file, self.rec_info['filename'])
+            if self.dual_recorder_mode:
+                # Copy files from both recorders
+                recorder_infos = []
+                if self.imager_info:
+                    # print("self.imager_info ",self.imager_info)
+                    recorder_infos.append(self.imager_info)
+                if self.scanimage_info:
+                    # print("self.scanimage_info ", self.scanimage_info)
+                    recorder_infos.append(self.scanimage_info)
+                print('recorder_infos ',recorder_infos)
+                for rec_info in recorder_infos:
+                    source_file = os.path.join(rec_info['source_path'], rec_info['filename']).replace("\\", "/")
+                    print(f"########################## source_file: {source_file} {rec_info['filename']}")  
+                    if os.path.isfile(source_file) or os.path.isdir(source_file):
+                        self.copy_file(source_file, rec_info['filename'])
+                    else:
+                        pattern = re.compile(rec_info['filename'] + ".*")
+                        for filepath in os.listdir(rec_info['source_path']):
+                            source_file = os.path.join(rec_info['source_path'], filepath).replace("\\", "/")
+                            if pattern.match(filepath):
+                                print(f"########################## pattern match source_file: {source_file} {filepath}")
+                                self.copy_file(source_file, filepath)
             else:
-                pattern = re.compile(self.rec_info['filename'] + ".*")
-                for filepath in os.listdir(self.rec_info['source_path']):
-                    source_file = os.path.join(self.rec_info['source_path'], filepath).replace("\\", "/")
-                    if pattern.match(filepath):
-                        self.copy_file(source_file, filepath)
+                # Single recorder mode
+                source_file = os.path.join(self.rec_info['source_path'], self.rec_info['filename']).replace("\\", "/")
+                if os.path.isfile(source_file) or os.path.isdir(source_file):
+                    self.copy_file(source_file, self.rec_info['filename'], self.rec_info)
+                else:
+                    pattern = re.compile(self.rec_info['filename'] + ".*")
+                    for filepath in os.listdir(self.rec_info['source_path']):
+                        source_file = os.path.join(self.rec_info['source_path'], filepath).replace("\\", "/")
+                        if pattern.match(filepath):
+                            self.copy_file(source_file, filepath, self.rec_info)
         self.set_rec_status(False)
 
     def copy_file(self, source_file, target_file):
         target_file = os.path.join(self.rec_info['target_path'], target_file).replace("\\", "/")
-        self.report('Copying %s to %s' % (source_file, target_file))
+        self.report('----------------- Copying %s to %s' % (source_file, target_file))
         self.copier.append(source_file, target_file)
 
     def set_rec_status(self, status):
@@ -322,6 +440,7 @@ class Runner(QtWidgets.QWidget):
         self.ui.setup.currentIndexChanged.connect(self.update_setup)
 
     def update_animal_id(self):
+        print("Update Animal ID")
         try:
             self.animal_id = int(self.ui.animal_input.text())
         except ValueError:
@@ -333,8 +452,13 @@ class Runner(QtWidgets.QWidget):
         while self.logger.get_setup_info("animal_id") != self.animal_id:
             time.sleep(.5)
         last_session = self.logger._get_last_session()
+        print(f"############################# update last session {last_session}")
         self.ui.session_id.setText(str(last_session))
-        self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
+        if self.dual_recorder_mode:
+            self.imager.update_key(dict(animal_id=self.animal_id, session=last_session+1))
+            self.scanimage.update_key(dict(animal_id=self.animal_id, session=last_session+1))
+        else:
+            self.recorder.update_key(dict(animal_id=self.animal_id, session=last_session+1))
         self.refresh_sessions()
 
     def update_setup(self):
@@ -351,6 +475,7 @@ class Runner(QtWidgets.QWidget):
                 self.ui.task_file.setText(str(filename))
 
     def refresh_sessions(self):
+        print("Refresh sessions")
         info = ['']*5
         info[0], info[1], info[2], info[3], info[4] = \
             self.logger.get(table='Session', fields=['session', 'user_name', 'setup','experiment_type', 'session_tmst'],
@@ -378,12 +503,25 @@ class Runner(QtWidgets.QWidget):
                 elif status not in ['running', 'operational']:
                     self.report('experiment done!')
                     self.stop()
-            elif self.state in ['running', 'operational'] and not self.ui.task_check.checkState() and not self.recorder.get_state():
+            elif self.state in ['running', 'operational'] and not self.ui.task_check.checkState() and not self._get_recorder_state():
                 self.report('experiment done!')
                 self.stop()
 
+    def _get_recorder_state(self):
+        if self.dual_recorder_mode:
+            if self.imager.get_state() or self.scanimage.get_state():
+                print("imager state: ", self.imager.get_state())
+                print("scan_image state: ", self.scanimage.get_state())
+            return self.imager.get_state() or self.scanimage.get_state()
+        else:
+            return self.recorder.get_state()
+
     def closeEvent(self, event):
-        self.recorder.quit()
+        if self.dual_recorder_mode:
+            self.imager.quit()
+            self.scanimage.quit()
+        else:
+            self.recorder.quit()
         if self.setup_name == 'local':
             self.logger.update_setup_info(dict(status='exit'))
         self.logger.cleanup()
@@ -406,11 +544,4 @@ if __name__ == "__main__":
     MainEventThread = QtWidgets.QApplication([])
     MainApp = Runner()
     MainApp.show()
-    while not MainApp.exit:
-        MainEventThread.processEvents()
-        MainApp.main()
-        time.sleep(.05)
-    MainEventThread.quit()
-
-
-
+    sys.exit(MainEventThread.exec())
