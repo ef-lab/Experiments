@@ -161,7 +161,8 @@ class ScanImage(Recorder):
         rec_idx = rec_info['rec_idx']
         self.matlab.eval("hSI.hScan_ImagingScanner.logFileCounter=" + str(rec_idx), nargout=0)
         file_base = str(self.key['animal_id']) + '_' + str(self.key['session'])
-        self.filename = file_base + '_' + str(rec_idx).zfill(5)
+        # self.filename = file_base + '_' + str(rec_idx).zfill(5)
+        self.filename = file_base + '_00001'
         self.matlab.eval("hSI.hScan_ImagingScanner.logFileStem='" + file_base + "'", nargout=0)
         self.matlab.eval("hSI.hScan_ImagingScanner.logFilePath='" + self.base_folder + "'", nargout=0)
         return dict(source_path=self.base_folder,
