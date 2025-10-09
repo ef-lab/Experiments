@@ -5,6 +5,13 @@ from ExpUtils.Writer import Writer
 from queue import Queue
 from importlib import import_module
 
+try:
+    from skvideo.io import FFmpegWriter
+    IMPORT_SKVIDEO = True
+except ImportError:
+    IMPORT_SKVIDEO = False
+    print("Warning: skvideo not found. Video recording with FFmpegWriter will not be available.")
+
 class Camera:
     def __init__(self, shape=(600, 600)):
         self.fps = 2
@@ -22,6 +29,8 @@ class Camera:
         self.reported_framerate = 0
         self.recording = False
         self.bit_depth = 8
+        self.video_writer = None
+        self.timestamp_saver = None
 
     def setup(self):
         self.cam_queue = Queue()
@@ -43,16 +52,42 @@ class Camera:
 
     def rec(self, basename=''):
         if not self.recording:
+            if not IMPORT_SKVIDEO:
+                raise ImportError("skvideo is required for video recording. Please install it: pip install scikit-video")
+
             now = datetime.datetime.now()
-            filename = '%s_%s.h5' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
-            print('Starting the recording of %s' % filename)
-            self.saver = Writer(filename)
-            self.saver.datasets.createDataset('frames', shape=(self.height, self.width), dtype=self.dtype)
-            self.saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
+            # Create base filename with timestamp that both files will share
+            base_filename = '%s_%s' % (basename, now.strftime('%Y-%m-%d_%H-%M-%S'))
+            video_filename = base_filename + '.mp4'
+            timestamp_filename = base_filename + '_timestamps.h5'
+
+            print('Starting the recording of %s' % video_filename)
+
+            # Initialize FFmpegWriter for video
+            self.video_writer = FFmpegWriter(
+                video_filename,
+                inputdict={
+                    "-r": str(self.fps),
+                },
+                outputdict={
+                    "-vcodec": "libx264",
+                    "-pix_fmt": "gray" if len(self.dtype().shape) == 0 else "rgb24",
+                    "-r": str(self.fps),
+                    "-preset": "ultrafast",
+                    "-s": f"{self.width}x{self.height}",
+                },
+            )
+
+            # Initialize H5 Writer for timestamps
+            self.timestamp_saver = Writer(timestamp_filename)
+            self.timestamp_saver.datasets.createDataset('timestamps', shape=(1,), dtype=numpy.double)
+
             self.iframe = 0
             self.save.set()
             self.recording = True
-            return filename
+            # Store base filename for pattern matching in Copier
+            self.base_filename = base_filename
+            return base_filename
         else:
             return []
 
@@ -60,13 +95,32 @@ class Camera:
         if self.recording:
             print('Wrote %d frames' % self.iframe)
             self.save.clear()
-            if hasattr(self, 'saver'):
-                print("start exit saver")
-                self.saver.exit()
-                print("start exit exit")
-            while self.saver.writing:
-                print("saver of camera is writing")
-                time.sleep(0.2)
+
+            # Wait for the cam_queue to empty before closing writers
+            print("Waiting for queue to empty...")
+            while not self.cam_queue.empty():
+                print(f"Queue size: {self.cam_queue.qsize()}")
+                time.sleep(0.1)
+            print("Queue is empty")
+
+            # Give dequeue thread a moment to process the last frame
+            time.sleep(0.2)
+
+            # Close video writer
+            if self.video_writer is not None:
+                print("Closing video writer")
+                self.video_writer.close()
+                self.video_writer = None
+
+            # Close timestamp saver
+            if self.timestamp_saver is not None:
+                print("Closing timestamp saver")
+                self.timestamp_saver.exit()
+                while self.timestamp_saver.writing:
+                    print("timestamp saver is writing")
+                    time.sleep(0.2)
+                self.timestamp_saver = None
+
         self.recording = False
 
     def set_frame_rate(self, fps):
@@ -79,8 +133,14 @@ class Camera:
                 item = cam_queue.get()
                 if self.save.is_set():
                     self.iframe += 1
-                    self.saver.append('timestamps', item['timestamps'])
-                    self.saver.append('frames', item['frames'])
+                    # Write timestamp to H5 file
+                    self.timestamp_saver.append('timestamps', item['timestamps'])
+                    # Write frame to video using FFmpegWriter
+                    frame = item['frames']
+                    # Ensure frame has correct shape for video writer
+                    if len(frame.shape) == 3 and frame.shape[2] == 1:
+                        frame = numpy.squeeze(frame, axis=2)
+                    self.video_writer.writeFrame(frame)
                 if self.process_queue.full():
                     self.process_queue.get()
                 time_diff = item['timestamps'] - self.time
@@ -105,8 +165,15 @@ class Camera:
         #self.capture_runner.join()
         self.thread_end.set()
         #self.thread_runner.join()
-        if hasattr(self, 'saver') and self.saver.writing:
-            self.saver.exit()
+
+        # Close video writer if open
+        if self.video_writer is not None:
+            self.video_writer.close()
+            self.video_writer = None
+
+        # Close timestamp saver if open
+        if self.timestamp_saver is not None and self.timestamp_saver.writing:
+            self.timestamp_saver.exit()
 
 
 class AravisCam(Camera):
